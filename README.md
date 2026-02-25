@@ -2,7 +2,7 @@
 
 iOS distribution repository for the Rolla Flutter SDK. Contains Swift Package Manager and CocoaPods artifacts for integrating Rolla into native iOS apps.
 
-**Current version:** `0.1.3`
+**Current version:** `0.1.4`
 
 ---
 
@@ -12,7 +12,7 @@ iOS distribution repository for the Rolla Flutter SDK. Contains Swift Package Ma
 2. Go to **Package Dependencies** tab
 3. Click **+** → **Add Package Dependency**
 4. Enter: `https://github.com/Rolla-Health-Fitness/rolla-sdk-release-ios.git`
-5. Select version: `0.1.3`
+5. Select version: `0.1.4`
 6. Click **Add Package**
 
 ---
@@ -27,7 +27,7 @@ source 'https://cdn.cocoapods.org/'
 
 target 'YourApp' do
   use_frameworks!
-  pod 'RollaSDK', '0.1.3'
+  pod 'RollaSDK', '0.1.4'
 end
 ```
 
