@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
   s.author           = { 'Rolla' => 'dev@rolla.cloud' }
 
   s.source           = {
-    :http => 'https://github.com/Rolla-Health-Fitness/rolla-sdk-release-ios/releases/download/0.1.1/RollaSDK-iOS-0.1.1.zip'
+    :http => 'https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.1-test/RollaSDK-iOS-0.1.1.zip'
   }
 
   s.ios.deployment_target = '14.0'
