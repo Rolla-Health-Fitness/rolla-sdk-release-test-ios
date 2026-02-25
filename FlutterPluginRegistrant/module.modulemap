@@ -1,0 +1,4 @@
+module FlutterPluginRegistrant {
+    header "GeneratedPluginRegistrant.h"
+    export *
+}
