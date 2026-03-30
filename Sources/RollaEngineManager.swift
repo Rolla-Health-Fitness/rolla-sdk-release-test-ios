@@ -127,6 +127,23 @@ final class RollaEngineManager {
         }
     }
     
+    func clearSession(completion: @escaping (Result<Void, RollaError>) -> Void) {
+        guard let channel = methodChannel else {
+            completion(.failure(.engineFailedToStart))
+            return
+        }
+
+        channel.invokeMethod("clearSession", arguments: nil) { response in
+            DispatchQueue.main.async {
+                if let error = response as? FlutterError {
+                    completion(.failure(.initializationFailed(error.message ?? "Unknown error")))
+                } else {
+                    completion(.success(()))
+                }
+            }
+        }
+    }
+
     func destroy() {
         methodChannel?.setMethodCallHandler(nil)
         methodChannel = nil

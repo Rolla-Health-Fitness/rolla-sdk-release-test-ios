@@ -48,6 +48,22 @@ public final class Rolla {
         }
     }
 
+    /// Clear all persisted session data (tokens, auth metadata) from secure storage.
+    ///
+    /// Call this when your app logs out the user and you want the SDK to forget
+    /// all credentials for that user. This does **not** dismiss the SDK UI or
+    /// destroy the Flutter engine — it only purges stored tokens.
+    ///
+    /// The engine must be initialized (i.e. `show()` must have been called at
+    /// least once) for the method channel to be available.
+    public func clearSession(completion: ((Result<Void, RollaError>) -> Void)? = nil) {
+        DispatchQueue.main.async {
+            self.engineManager.clearSession { result in
+                completion?(result)
+            }
+        }
+    }
+
     public func dismiss() {
         DispatchQueue.main.async {
             guard self.engineManager.isPresenting, let vc = self.flutterViewController else { return }

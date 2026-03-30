@@ -30,6 +30,10 @@ final class LiveWorkoutBridge: NSObject {
     /// This allows quick lookup without scanning all system activities
     private var activitiesById: [String: Activity<LiveWorkoutAttributes>] = [:]
 
+    /// How far in the future to set the stale date on each start/update.
+    /// After this interval with no updates, iOS marks the Live Activity as stale.
+    private static let staleDateInterval: TimeInterval = 2 * 60
+
     // MARK: - Initialization
 
     /// Initialize the Live Workout bridge
@@ -46,7 +50,24 @@ final class LiveWorkoutBridge: NSObject {
             self?.handleMethodCall(call, result: result)
         }
 
+        endAllStaleActivities()
+
         print("✅ [LiveWorkoutBridge] Registered - Live Activities ready (iOS 16.1+)")
+    }
+
+    /// End any Live Activities orphaned by a previous crash or force-quit.
+    /// Called automatically on init so stale widgets are dismissed as soon as
+    /// the app relaunches.
+    private func endAllStaleActivities() {
+        let runningActivities = Activity<LiveWorkoutAttributes>.activities
+        guard !runningActivities.isEmpty else { return }
+
+        print("🧹 [LiveWorkoutBridge] Found \(runningActivities.count) orphaned Live Activities — ending them")
+        for activity in runningActivities {
+            Task {
+                await activity.end(dismissalPolicy: .immediate)
+            }
+        }
     }
 
     // MARK: - Method Call Handling
@@ -63,6 +84,8 @@ final class LiveWorkoutBridge: NSObject {
             handleUpdate(call, result: result)
         case "end":
             handleEnd(call, result: result)
+        case "endAll":
+            handleEndAll(result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -126,6 +149,7 @@ final class LiveWorkoutBridge: NSObject {
         let isBandConnected = args["isBandConnected"] as? Bool ?? true
         let disconnectedMessage = args["disconnectedMessage"] as? String
         let pausedMessage = args["pausedMessage"] as? String
+        let staleMessage = args["staleMessage"] as? String
         let heartRateBpm = parseOptionalInt(args["heartRateBpm"])
         let maxHeartRateBpm = parseOptionalInt(args["maxHeartRateBpm"])
 
@@ -147,16 +171,30 @@ final class LiveWorkoutBridge: NSObject {
             isPaused: false,
             isBandConnected: isBandConnected,
             disconnectedMessage: disconnectedMessage,
-            pausedMessage: pausedMessage
+            pausedMessage: pausedMessage,
+            staleMessage: staleMessage
         )
 
         // Request the Live Activity from iOS
         do {
-            let activity = try Activity.request(
-                attributes: attributes,
-                contentState: initialState,
-                pushType: nil  // Not using remote push
-            )
+            let activity: Activity<LiveWorkoutAttributes>
+            if #available(iOS 16.2, *) {
+                let content = ActivityContent(
+                    state: initialState,
+                    staleDate: Date().addingTimeInterval(Self.staleDateInterval)
+                )
+                activity = try Activity.request(
+                    attributes: attributes,
+                    content: content,
+                    pushType: nil
+                )
+            } else {
+                activity = try Activity.request(
+                    attributes: attributes,
+                    contentState: initialState,
+                    pushType: nil
+                )
+            }
 
             // Store for later updates
             activitiesById[activityId] = activity
@@ -211,6 +249,7 @@ final class LiveWorkoutBridge: NSObject {
         let isBandConnected = args["isBandConnected"] as? Bool ?? true
         let disconnectedMessage = args["disconnectedMessage"] as? String
         let pausedMessage = args["pausedMessage"] as? String
+        let staleMessage = args["staleMessage"] as? String
         let heartRateBpm = parseOptionalInt(args["heartRateBpm"])
         let maxHeartRateBpm = parseOptionalInt(args["maxHeartRateBpm"])
 
@@ -234,12 +273,21 @@ final class LiveWorkoutBridge: NSObject {
             isPaused: isPaused,
             isBandConnected: isBandConnected,
             disconnectedMessage: disconnectedMessage,
-            pausedMessage: pausedMessage
+            pausedMessage: pausedMessage,
+            staleMessage: staleMessage
         )
 
-        // Update the Live Activity asynchronously
+        // Update the Live Activity asynchronously, pushing the stale date forward
         Task {
-            await activity.update(using: newState)
+            if #available(iOS 16.2, *) {
+                let content = ActivityContent(
+                    state: newState,
+                    staleDate: Date().addingTimeInterval(Self.staleDateInterval)
+                )
+                await activity.update(content)
+            } else {
+                await activity.update(using: newState)
+            }
             // Update cache
             self.activitiesById[activityId] = activity
             print("🔄 [LiveWorkoutBridge] Updated Live Activity: \(activityId)")
@@ -284,6 +332,30 @@ final class LiveWorkoutBridge: NSObject {
             // Remove from cache
             self.activitiesById.removeValue(forKey: activityId)
             print("🔴 [LiveWorkoutBridge] Ended Live Activity: \(activityId)")
+            result(true)
+        }
+    }
+
+    // MARK: - End All Live Activities
+
+    /// End all running Live Activities.
+    /// Called from Flutter via the `endAll` method channel to clean up stale
+    /// activities programmatically (e.g. on app startup before a new workout).
+    ///
+    /// - Returns: Bool - true when complete
+    private func handleEndAll(result: @escaping FlutterResult) {
+        let activities = Activity<LiveWorkoutAttributes>.activities
+        guard !activities.isEmpty else {
+            result(true)
+            return
+        }
+
+        Task {
+            for activity in activities {
+                await activity.end(dismissalPolicy: .immediate)
+            }
+            self.activitiesById.removeAll()
+            print("🧹 [LiveWorkoutBridge] Ended all (\(activities.count)) Live Activities via endAll")
             result(true)
         }
     }

@@ -37,204 +37,204 @@ let package = Package(
         // Flutter module (Dart code compiled to native)
         .binaryTarget(
             name: "App",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/App.xcframework.zip",
-            checksum: "6dc4d6e93ea0e4257b79b4aae88a94ca66c8fc6809680fa20035657a3053e7f4"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/App.xcframework.zip",
+            checksum: "cbdbdf7812e06cdae8007678d49f4d97c7bf28bf750136e579485edf9d44d708"
         ),
 
         // Flutter engine runtime
         .binaryTarget(
             name: "Flutter",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/Flutter.xcframework.zip",
-            checksum: "a224e7f081d4b455a288b24c260833dc59dfd75d2a46ca0611572803767eb43a"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/Flutter.xcframework.zip",
+            checksum: "ef69daf91aed83a598b59fed6053a01e9722993b2030e70932bbc5179bf709df"
         )
 ,
         // Flutter plugin: apple_health
         .binaryTarget(
             name: "apple_health",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/apple_health.xcframework.zip",
-            checksum: "1d877d454426565028296c8084c76b987b5e4561e1c010c31b0766214fe870ad"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/apple_health.xcframework.zip",
+            checksum: "74938bb9b70ef1232cb553e53503e16693d284644ee5b80f7b0b0b30afd2d57f"
         )
 ,
         // Flutter plugin: connectivity_plus
         .binaryTarget(
             name: "connectivity_plus",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/connectivity_plus.xcframework.zip",
-            checksum: "01868f4748512aa49d067f0ef9e0917c86e552c0d901ce1175e01a8982cc328d"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/connectivity_plus.xcframework.zip",
+            checksum: "0e9db130b339f23e1b841b2505111e1c1641330681006e205772ea98cd8603b5"
         )
 ,
         // Flutter plugin: device_info_plus
         .binaryTarget(
             name: "device_info_plus",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/device_info_plus.xcframework.zip",
-            checksum: "b5e9e80a35c3a8b030cc1b7ac46a425e6fe61d7ed89a08e1caaaa958695cfb6d"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/device_info_plus.xcframework.zip",
+            checksum: "aa11e55506b81da6005aa3a8921d8e432577df00a6cba99ff651f72675f5c457"
         )
 ,
         // Flutter plugin: flutter_blue_plus_darwin
         .binaryTarget(
             name: "flutter_blue_plus_darwin",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/flutter_blue_plus_darwin.xcframework.zip",
-            checksum: "c12d04ad6a1c5c8e11e4404a1aaf9d5ace628d7414a93172c7b54d9f43bce7e0"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/flutter_blue_plus_darwin.xcframework.zip",
+            checksum: "c2151785eb402a6dbed513ba74e869d9a5c666356f632538ed1e919a02ea7cb5"
         )
 ,
         // Flutter plugin: flutter_local_notifications
         .binaryTarget(
             name: "flutter_local_notifications",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/flutter_local_notifications.xcframework.zip",
-            checksum: "2b4b6de9e007d39cebca79f49c2f2a5b3fb0cfa6438526459bb483eb45747676"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/flutter_local_notifications.xcframework.zip",
+            checksum: "f6994e7733baa41b06c66de1a70cbddb4c3a48cf63f3ecf0767d70504df72170"
         )
 ,
         // Flutter plugin: flutter_native_timezone_latest
         .binaryTarget(
             name: "flutter_native_timezone_latest",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/flutter_native_timezone_latest.xcframework.zip",
-            checksum: "1b4f99a6c545d8c2beab11f72f69ba9ceeaadca4748895ebf926070617380fdf"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/flutter_native_timezone_latest.xcframework.zip",
+            checksum: "477228ed0487511a38ef46d132a1f855a40e6b4906c09767992229b921169f2c"
         )
 ,
         // Flutter plugin: flutter_secure_storage
         .binaryTarget(
             name: "flutter_secure_storage",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/flutter_secure_storage.xcframework.zip",
-            checksum: "2685dad1718eb865d72d35a9ee56cf3f0b94b3c9b7252157aaea93a9306a881e"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/flutter_secure_storage.xcframework.zip",
+            checksum: "85570710a1e0f08a1517eef50b1ede2e2137a03b432690ac0d87b83b75a2a3b9"
         )
 ,
         // Flutter plugin: geolocator_apple
         .binaryTarget(
             name: "geolocator_apple",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/geolocator_apple.xcframework.zip",
-            checksum: "61d57e58ae274977c2ca8f5379570076bb2e72d46dff91d987fb8e60d08a624e"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/geolocator_apple.xcframework.zip",
+            checksum: "0dbc1f0226b8682b98b68e60795e1650f5cd85b09971a046da89ba392af33ea6"
         )
 ,
         // Flutter plugin: image_cropper
         .binaryTarget(
             name: "image_cropper",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/image_cropper.xcframework.zip",
-            checksum: "2c8349ef18c2a53e356437b1867792f66f2f6eda2cabbaa7c810334a0628fc72"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/image_cropper.xcframework.zip",
+            checksum: "db52dc42d5036846e2063a77b42d72d2e4e5202e65d14cbb90de3f040e0c9a46"
         )
 ,
         // Flutter plugin: image_picker_ios
         .binaryTarget(
             name: "image_picker_ios",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/image_picker_ios.xcframework.zip",
-            checksum: "fef37a8d468d64558b87fbffe8e03c2e6efe080d51b42f02079b4c6ed5c9e6da"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/image_picker_ios.xcframework.zip",
+            checksum: "32b74c732203e3e6eaa213fe08909659fe8cfa1fc7192ed90adaaf156eb0bd44"
         )
 ,
         // Flutter plugin: mapbox_maps_flutter
         .binaryTarget(
             name: "mapbox_maps_flutter",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/mapbox_maps_flutter.xcframework.zip",
-            checksum: "2d2b696f8f710e979b3ccb29abedeb2387338bac74b1ccfe0a0c76f6e1dc57d6"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/mapbox_maps_flutter.xcframework.zip",
+            checksum: "01a9508226f4a38f841e62830a317181ee123c820cf163e8837bc058ec098e6d"
         )
 ,
         // Flutter plugin: MapboxCommon
         .binaryTarget(
             name: "MapboxCommon",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/MapboxCommon.xcframework.zip",
-            checksum: "6269d7ddf5ab7c9a8f01c1d394f29c3927bbd5dabbdc60a9429dc42edce0ecb5"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/MapboxCommon.xcframework.zip",
+            checksum: "6348fc197053490df77afdae617c10c7fb126837ea70ebe1d11b77df12b43c14"
         )
 ,
         // Flutter plugin: MapboxCoreMaps
         .binaryTarget(
             name: "MapboxCoreMaps",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/MapboxCoreMaps.xcframework.zip",
-            checksum: "2a068f10a8ca1b8643be3a1a65c15fc742ff12c9496bcb9d53e44492cef02fff"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/MapboxCoreMaps.xcframework.zip",
+            checksum: "96ede4aebbf073073b3e5be2baf34634de481313f47ab42031aa04280566acfb"
         )
 ,
         // Flutter plugin: MapboxMaps
         .binaryTarget(
             name: "MapboxMaps",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/MapboxMaps.xcframework.zip",
-            checksum: "73a8b7ca9562b3294a43d647ed6e8eec74833256f79b1801b484a9ea02c7e506"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/MapboxMaps.xcframework.zip",
+            checksum: "b1be4a9c4766da1aafc2c5adfb83b5358378a8cc974164ce8ed46ed138c0bb5d"
         )
 ,
         // Flutter plugin: NordicDFU
         .binaryTarget(
             name: "NordicDFU",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/NordicDFU.xcframework.zip",
-            checksum: "773f58cce638e1e010ce98202471413a52813f4d2a47a1c42701203e0c330b22"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/NordicDFU.xcframework.zip",
+            checksum: "c11cdf69b6030cd3d247e189e90c95499d03da5472bafa09e429bf1a99fe1898"
         )
 ,
         // Flutter plugin: package_info_plus
         .binaryTarget(
             name: "package_info_plus",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/package_info_plus.xcframework.zip",
-            checksum: "fac4f729892bbff8bd9e6c11f471f6aa533bba759fd208ff2ce197bfc01f55c7"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/package_info_plus.xcframework.zip",
+            checksum: "83062ccd15e35e44e37167353ea3ea8f737e6521337eeb4e175f7224f8633499"
         )
 ,
         // Flutter plugin: path_provider_foundation
         .binaryTarget(
             name: "path_provider_foundation",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/path_provider_foundation.xcframework.zip",
-            checksum: "8fc4c70049696a25a232eba9eb99169ffa76e56fb1e4d51beb7c69450ed81b57"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/path_provider_foundation.xcframework.zip",
+            checksum: "ba05f936a631b21c7286f076322cbd7d82f32f7fe60c3366ba1d0c835314c396"
         )
 ,
         // Flutter plugin: permission_handler_apple
         .binaryTarget(
             name: "permission_handler_apple",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/permission_handler_apple.xcframework.zip",
-            checksum: "b221e8f7f52f3bb22b7c9859d58767fa76f31f783b7db2771f22dcd10fca4766"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/permission_handler_apple.xcframework.zip",
+            checksum: "8ceee4529058fe74fd13c2fd2d8ec42ae9d65dc10054ff2bf073c88f5ce54d3c"
         )
 ,
         // Flutter plugin: share_plus
         .binaryTarget(
             name: "share_plus",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/share_plus.xcframework.zip",
-            checksum: "2e9617a6b905d5480d5bd69313cb0201ee29996d791e682c774fd822eb443d74"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/share_plus.xcframework.zip",
+            checksum: "75473dc3768efcef8a9621ffe306c8b1e0ba1fa3ec4ac23020271aebbe632677"
         )
 ,
         // Flutter plugin: shared_preferences_foundation
         .binaryTarget(
             name: "shared_preferences_foundation",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/shared_preferences_foundation.xcframework.zip",
-            checksum: "3315b6bafe0b406846edc05e9373616b01b8e5342cb4976188a59d038013361b"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/shared_preferences_foundation.xcframework.zip",
+            checksum: "e90cee425eb38300e2716113aa0a8454d429a79703360807229c609eb0133b27"
         )
 ,
         // Flutter plugin: sqflite_darwin
         .binaryTarget(
             name: "sqflite_darwin",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/sqflite_darwin.xcframework.zip",
-            checksum: "3d51f2a11772b0abdf936151060a057aafb79791b047e1e6cc2e98be23fce329"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/sqflite_darwin.xcframework.zip",
+            checksum: "82a2d549f44e7514634ff1422d180c263715a8a267adf640e154d414d728f2a1"
         )
 ,
         // Flutter plugin: TOCropViewController
         .binaryTarget(
             name: "TOCropViewController",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/TOCropViewController.xcframework.zip",
-            checksum: "a9a11be9db4631f1c95ac19428553711689ed21ed8b6120966b54a019b7dc0c8"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/TOCropViewController.xcframework.zip",
+            checksum: "36c2f6c61a3e510cb3e2bc21350cd0322e7cc8bc311cb1e7f17a647fc5588727"
         )
 ,
         // Flutter plugin: Turf
         .binaryTarget(
             name: "Turf",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/Turf.xcframework.zip",
-            checksum: "ec7431f26173aeb63c605391b32a216674b6d1c70f0b20aab0b05435c14886a4"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/Turf.xcframework.zip",
+            checksum: "390dad6d2a896fca1bae53637417ea74e232818d955bc15da4ef6944fcdae74c"
         )
 ,
         // Flutter plugin: url_launcher_ios
         .binaryTarget(
             name: "url_launcher_ios",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/url_launcher_ios.xcframework.zip",
-            checksum: "5c07af2bfc131ab7a0e5022c859a9a4042662802ef2271ac20b0266610cb85af"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/url_launcher_ios.xcframework.zip",
+            checksum: "cf6ab1dbcb55df9e630b8a1dd45f44a6b562c6e54259645b71750d3941937bc6"
         )
 ,
         // Flutter plugin: video_player_avfoundation
         .binaryTarget(
             name: "video_player_avfoundation",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/video_player_avfoundation.xcframework.zip",
-            checksum: "bf35bd274da182c36c979cb7f5f7e5a124d91cdd3fae96da054b27f59264bb07"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/video_player_avfoundation.xcframework.zip",
+            checksum: "22bfe37b462106a3c82a0ef9fd4c716a8f6bafa8eeb7117995f6c6b9fa09869b"
         )
 ,
         // Flutter plugin: wakelock_plus
         .binaryTarget(
             name: "wakelock_plus",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/wakelock_plus.xcframework.zip",
-            checksum: "a28cfacfaf993d67f179b0bc43a60c5fa27cd6063c8f60f48e0330f7cacaa842"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/wakelock_plus.xcframework.zip",
+            checksum: "5b8299f1c5944efbc6d7eeb800ce70d6fa2e0150036f85432382cad53f2d57e0"
         )
 ,
         // Flutter plugin: ZIPFoundation
         .binaryTarget(
             name: "ZIPFoundation",
-            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.10-test/ZIPFoundation.xcframework.zip",
-            checksum: "2300689ea9e6745929f323a2d0b0e00f02d14b5cb790484eedfedbc116f13bb9"
+            url: "https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios/releases/download/0.1.11-test/ZIPFoundation.xcframework.zip",
+            checksum: "d0d4df9b4653b3989099c6e71892d0e0f5b749a70eb4b88e161c1588d0096b1f"
         )
     ]
 )

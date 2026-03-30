@@ -31,6 +31,9 @@ struct LiveWorkoutAttributes: ActivityAttributes {
         var disconnectedMessage: String?
         /// Localized message (provided by the app) to display when the activity is paused.
         var pausedMessage: String?
+        /// Localized message (provided by the app) to display when the Live Activity becomes stale
+        /// (i.e. the app was killed or crashed and can no longer push updates).
+        var staleMessage: String?
     }
 
     // Fixed properties (do not change during the activity)
