@@ -51,8 +51,6 @@ final class LiveWorkoutBridge: NSObject {
         }
 
         endAllStaleActivities()
-
-        print("✅ [LiveWorkoutBridge] Registered - Live Activities ready (iOS 16.1+)")
     }
 
     /// End any Live Activities orphaned by a previous crash or force-quit.
@@ -62,7 +60,6 @@ final class LiveWorkoutBridge: NSObject {
         let runningActivities = Activity<LiveWorkoutAttributes>.activities
         guard !runningActivities.isEmpty else { return }
 
-        print("🧹 [LiveWorkoutBridge] Found \(runningActivities.count) orphaned Live Activities — ending them")
         for activity in runningActivities {
             Task {
                 await activity.end(dismissalPolicy: .immediate)
@@ -113,13 +110,11 @@ final class LiveWorkoutBridge: NSObject {
     private func handleStart(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         // Check if Live Activities are enabled by the user
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            print("⚠️ [LiveWorkoutBridge] Live Activities disabled by user")
             result(nil)
             return
         }
 
         guard let args = call.arguments as? [String: Any] else {
-            print("❌ [LiveWorkoutBridge] Invalid arguments for start")
             result(nil)
             return
         }
@@ -127,7 +122,6 @@ final class LiveWorkoutBridge: NSObject {
         // Extract required parameters
         guard let activityId = args["activityId"] as? String,
               let name = args["name"] as? String else {
-            print("❌ [LiveWorkoutBridge] Missing required parameters (activityId or name)")
             result(nil)
             return
         }
@@ -198,8 +192,6 @@ final class LiveWorkoutBridge: NSObject {
 
             // Store for later updates
             activitiesById[activityId] = activity
-
-            print("✅ [LiveWorkoutBridge] Started Live Activity: \(activityId) -> \(activity.id)")
             result(activity.id)
         } catch {
             print("❌ [LiveWorkoutBridge] Failed to start Live Activity: \(error)")
@@ -226,13 +218,11 @@ final class LiveWorkoutBridge: NSObject {
     /// - Returns: Bool - true if updated successfully, false otherwise
     private func handleUpdate(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: Any] else {
-            print("❌ [LiveWorkoutBridge] Invalid arguments for update")
             result(false)
             return
         }
 
         guard let activityId = args["activityId"] as? String else {
-            print("❌ [LiveWorkoutBridge] Missing activityId for update")
             result(false)
             return
         }
@@ -258,7 +248,6 @@ final class LiveWorkoutBridge: NSObject {
             ?? Activity<LiveWorkoutAttributes>.activities.first(where: { $0.attributes.activityId == activityId })
 
         guard let activity = activity else {
-            print("⚠️ [LiveWorkoutBridge] Activity not found for update: \(activityId)")
             result(false)
             return
         }
@@ -290,7 +279,6 @@ final class LiveWorkoutBridge: NSObject {
             }
             // Update cache
             self.activitiesById[activityId] = activity
-            print("🔄 [LiveWorkoutBridge] Updated Live Activity: \(activityId)")
             result(true)
         }
     }
@@ -305,13 +293,11 @@ final class LiveWorkoutBridge: NSObject {
     /// - Returns: Bool - true if ended successfully, false otherwise
     private func handleEnd(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: Any] else {
-            print("❌ [LiveWorkoutBridge] Invalid arguments for end")
             result(false)
             return
         }
 
         guard let activityId = args["activityId"] as? String else {
-            print("❌ [LiveWorkoutBridge] Missing activityId for end")
             result(false)
             return
         }
@@ -321,7 +307,6 @@ final class LiveWorkoutBridge: NSObject {
             ?? Activity<LiveWorkoutAttributes>.activities.first(where: { $0.attributes.activityId == activityId })
 
         guard let activity = activity else {
-            print("⚠️ [LiveWorkoutBridge] Activity not found for end: \(activityId)")
             result(false)
             return
         }
@@ -331,7 +316,6 @@ final class LiveWorkoutBridge: NSObject {
             await activity.end(dismissalPolicy: .immediate)
             // Remove from cache
             self.activitiesById.removeValue(forKey: activityId)
-            print("🔴 [LiveWorkoutBridge] Ended Live Activity: \(activityId)")
             result(true)
         }
     }
@@ -355,7 +339,6 @@ final class LiveWorkoutBridge: NSObject {
                 await activity.end(dismissalPolicy: .immediate)
             }
             self.activitiesById.removeAll()
-            print("🧹 [LiveWorkoutBridge] Ended all (\(activities.count)) Live Activities via endAll")
             result(true)
         }
     }

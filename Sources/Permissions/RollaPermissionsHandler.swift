@@ -75,7 +75,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
     private func checkBluetoothStatusInternal() -> Bool {
         if #available(iOS 13.1, *) {
             let status = CBCentralManager.authorization
-            print("📱 [RollaPermissions] Bluetooth status: \(status.rawValue)")
             return status == .allowedAlways
         } else if #available(iOS 13.0, *) {
             // For iOS 13.0, reuse existing manager or create one
@@ -86,11 +85,9 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
                 )
             }
             let granted = bluetoothManager?.authorization == .allowedAlways
-            print("📱 [RollaPermissions] Bluetooth status (iOS 13.0): \(granted)")
             return granted
         } else {
             // Pre-iOS 13, no runtime permission needed
-            print("📱 [RollaPermissions] Bluetooth status (pre-iOS 13): true")
             return true
         }
     }
@@ -100,7 +97,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
     private func checkLocationStatusInternal() -> Bool {
         let status = CLLocationManager.authorizationStatus()
         let granted = status == .authorizedWhenInUse || status == .authorizedAlways
-        print("📱 [RollaPermissions] Location status: \(status.rawValue) -> granted: \(granted)")
         return granted
     }
 
@@ -109,7 +105,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
     private func checkBackgroundLocationStatusInternal() -> Bool {
         let status = CLLocationManager.authorizationStatus()
         let granted = status == .authorizedAlways
-        print("📱 [RollaPermissions] Background Location status: \(status.rawValue) -> granted: \(granted)")
         return granted
     }
 
@@ -119,7 +114,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
     /// Initializes CBCentralManager which triggers iOS permission dialog
     /// - Parameter completion: Callback with true if granted, false otherwise
     private func requestBluetoothPermissionInternal(completion: @escaping (Bool) -> Void) {
-        print("📱 [RollaPermissions] Requesting Bluetooth permission...")
         // Store completion handler for delegate callback
         // Note: bluetoothCompletion expects Result<Bool, Error>, so we wrap the Bool response
         self.bluetoothCompletion = { result in
@@ -135,12 +129,10 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
         if #available(iOS 13.1, *) {
             let status = CBCentralManager.authorization
             if status == .allowedAlways {
-                print("📱 [RollaPermissions] Bluetooth already authorized")
                 completion(true)
                 bluetoothCompletion = nil
                 return
             } else if status == .denied || status == .restricted {
-                print("📱 [RollaPermissions] Bluetooth denied/restricted")
                 completion(false)
                 bluetoothCompletion = nil
                 return
@@ -149,7 +141,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
 
         // Initialize CBCentralManager - this triggers the iOS permission dialog
         // The delegate callback will handle the completion
-        print("📱 [RollaPermissions] Initializing CBCentralManager...")
         bluetoothManager = CBCentralManager(
             delegate: self,
             queue: .global(qos: .userInitiated)
@@ -160,7 +151,6 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
     /// Requests WhenInUse authorization which triggers iOS permission dialog
     /// - Parameter completion: Callback with true if granted, false otherwise
     private func requestLocationPermissionInternal(completion: @escaping (Bool) -> Void) {
-        print("📱 [RollaPermissions] Requesting Location permission...")
         // Store completion handler for delegate callback
         // Note: locationCompletion expects Result<Bool, Error>, so we wrap the Bool response
         self.locationCompletion = { result in
@@ -175,19 +165,16 @@ final class RollaPermissionsHandler: NSObject, RollaPermissionsHostApi {
         // Check current status
         let status = CLLocationManager.authorizationStatus()
         if status == .authorizedWhenInUse || status == .authorizedAlways {
-            print("📱 [RollaPermissions] Location already authorized")
             completion(true)
             locationCompletion = nil
             return
         } else if status == .denied || status == .restricted {
-            print("📱 [RollaPermissions] Location denied/restricted")
             completion(false)
             locationCompletion = nil
             return
         }
 
         // Request authorization - delegate callback will handle completion
-        print("📱 [RollaPermissions] Requesting WhenInUse authorization...")
         locationManager = CLLocationManager()
         locationManager?.delegate = self
         locationManager?.requestWhenInUseAuthorization()
@@ -201,8 +188,6 @@ extension RollaPermissionsHandler: CBCentralManagerDelegate {
     /// Called when Bluetooth manager state changes
     /// Used to detect when user responds to permission dialog
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        print("📱 [RollaPermissions] Bluetooth state updated: \(central.state.rawValue)")
-
         // Check if we're waiting for user response
         guard let completion = bluetoothCompletion else { return }
 
@@ -213,13 +198,11 @@ extension RollaPermissionsHandler: CBCentralManagerDelegate {
             // User has responded (or permission was already determined)
             if #available(iOS 13.1, *) {
                 let status = CBCentralManager.authorization
-                print("📱 [RollaPermissions] Bluetooth authorization: \(status.rawValue)")
                 let granted = status == .allowedAlways
                 completion(.success(granted))
                 self.bluetoothCompletion = nil
             } else if #available(iOS 13.0, *) {
                 let status = central.authorization
-                print("📱 [RollaPermissions] Bluetooth authorization: \(status.rawValue)")
                 let granted = status == .allowedAlways
                 completion(.success(granted))
                 self.bluetoothCompletion = nil
@@ -242,10 +225,8 @@ extension RollaPermissionsHandler: CLLocationManagerDelegate {
         let status: CLAuthorizationStatus
         if #available(iOS 14.0, *) {
             status = manager.authorizationStatus
-            print("📱 [RollaPermissions] Location authorization changed: \(status.rawValue)")
         } else {
             status = CLLocationManager.authorizationStatus()
-            print("📱 [RollaPermissions] Location authorization changed: \(status.rawValue)")
         }
 
         // Check if we're waiting for user response
@@ -258,13 +239,11 @@ extension RollaPermissionsHandler: CLLocationManagerDelegate {
             // Only respond when we have an actual authorization decision from the user
             // Ignore .notDetermined (dialog still showing or not yet shown)
             if status == .notDetermined {
-                print("📱 [RollaPermissions] Location status is notDetermined, waiting for user response")
                 return
             }
 
             // User has responded (or permission was already determined)
             let granted = status == .authorizedWhenInUse || status == .authorizedAlways
-            print("📱 [RollaPermissions] Location granted: \(granted)")
             completion(.success(granted))
             self.locationCompletion = nil
         }

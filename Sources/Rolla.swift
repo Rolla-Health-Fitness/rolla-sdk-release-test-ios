@@ -64,6 +64,33 @@ public final class Rolla {
         }
     }
 
+    /// Push fresh tokens to the SDK.
+    ///
+    /// Call this after receiving a ``RollaDelegate/rollaDidRequestTokenRefresh(_:)``
+    /// callback, once your app has obtained new tokens from its own auth backend.
+    ///
+    /// - Parameters:
+    ///   - token: The new access token.
+    ///   - refreshToken: An optional new refresh token.
+    ///   - expiresIn: Optional time interval in seconds until the new token expires.
+    ///   - completion: Called when the SDK has accepted or rejected the token update.
+    public func updateToken(
+        token: String,
+        refreshToken: String? = nil,
+        expiresIn: TimeInterval? = nil,
+        completion: ((Result<Void, RollaError>) -> Void)? = nil
+    ) {
+        DispatchQueue.main.async {
+            self.engineManager.updateToken(
+                token: token,
+                refreshToken: refreshToken,
+                expiresIn: expiresIn
+            ) { result in
+                completion?(result)
+            }
+        }
+    }
+
     public func dismiss() {
         DispatchQueue.main.async {
             guard self.engineManager.isPresenting, let vc = self.flutterViewController else { return }
@@ -124,6 +151,16 @@ public final class Rolla {
             guard let self else { return }
             self.delegate?.rolla(self, didFailWithError: .flutterError(code: code, message: message))
         }
+
+        engineManager.onTokenRefreshed = { [weak self] token, refreshToken, expiresIn in
+            guard let self else { return }
+            self.delegate?.rollaDidRefreshToken(self, token: token, refreshToken: refreshToken, expiresIn: expiresIn)
+        }
+
+        engineManager.onTokenExpired = { [weak self] in
+            guard let self else { return }
+            self.delegate?.rollaDidRequestTokenRefresh(self)
+        }
     }
 
     private func cleanup() {
@@ -132,5 +169,7 @@ public final class Rolla {
         engineManager.setPresenting(false)
         engineManager.onClose = nil
         engineManager.onError = nil
+        engineManager.onTokenRefreshed = nil
+        engineManager.onTokenExpired = nil
     }
 }
