@@ -82,7 +82,6 @@ final class RollaEngineManager {
             let refreshToken = args?["refreshToken"] as? String
             let expiresIn = args?["expiresIn"] as? Int
             let expiresInInterval: TimeInterval? = expiresIn.map { TimeInterval($0) }
-            print(">>> [TOKEN_CALLBACK][iOS] onTokenRefreshed received | token=\(token.prefix(20))... | refreshToken=\(refreshToken != nil ? "present" : "nil") | expiresIn=\(expiresIn ?? 0)s")
             onTokenRefreshed?(token, refreshToken, expiresInInterval)
             result(nil)
 
@@ -144,9 +143,7 @@ final class RollaEngineManager {
     }
     
     func updateToken(token: String, refreshToken: String?, expiresIn: TimeInterval?, completion: @escaping (Result<Void, RollaError>) -> Void) {
-        print(">>> [TOKEN_CALLBACK][iOS] updateToken sending to Flutter | token=\(token.prefix(20))... | expiresIn=\(expiresIn ?? 0)s")
         guard let channel = methodChannel else {
-            print(">>> [TOKEN_CALLBACK][iOS] updateToken FAILED — no method channel")
             completion(.failure(.engineFailedToStart))
             return
         }
