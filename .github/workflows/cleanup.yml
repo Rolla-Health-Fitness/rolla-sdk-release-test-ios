@@ -85,13 +85,13 @@ jobs:
 
       - name: Reset README
         run: |
-          cat > README.md << 'EOF'
-          # Rolla SDK — iOS (Test)
-
-          This is the test release repository. It has been cleaned up by the weekly cleanup workflow.
-
-          No version is currently available. The next test release will populate this repo.
-          EOF
+          printf '%s\n' \
+            '# Rolla SDK — iOS (Test)' \
+            '' \
+            'This is the test release repository. It has been cleaned up by the weekly cleanup workflow.' \
+            '' \
+            'No version is currently available. The next test release will populate this repo.' \
+            > README.md
 
       - name: Commit and push
         run: |
