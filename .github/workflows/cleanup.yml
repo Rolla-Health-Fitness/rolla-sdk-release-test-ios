@@ -83,13 +83,23 @@ jobs:
             echo "No Specs/RollaSDK versions to clean."
           fi
 
+      - name: Reset README
+        run: |
+          cat > README.md << 'EOF'
+          # Rolla SDK — iOS (Test)
+
+          This is the test release repository. It has been cleaned up by the weekly cleanup workflow.
+
+          No version is currently available. The next test release will populate this repo.
+          EOF
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --staged --quiet; then
-            git commit -m "Cleanup: remove accumulated Specs versions"
+            git commit -m "Cleanup: remove accumulated Specs versions and reset README"
             git push origin dev
             echo "Pushed cleanup commit."
           else
