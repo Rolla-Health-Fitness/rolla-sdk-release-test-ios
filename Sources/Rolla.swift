@@ -91,6 +91,17 @@ public final class Rolla {
         }
     }
 
+    /// Destroy the Flutter engine and free its resources from memory.
+    ///
+    /// Call this when the host app wants to reclaim the memory used by the
+    /// Flutter engine. Unlike ``dismiss()``, which keeps the engine alive for
+    /// fast re-presentation, this method fully tears it down.
+    ///
+    /// The next call to ``show(from:)`` will create a fresh engine automatically.
+    public static func destroyEngine() {
+        RollaEngineManager.shared.destroy()
+    }
+
     public func dismiss() {
         DispatchQueue.main.async {
             guard self.engineManager.isPresenting, let vc = self.flutterViewController else { return }

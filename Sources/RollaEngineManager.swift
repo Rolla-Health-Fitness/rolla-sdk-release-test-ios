@@ -86,7 +86,6 @@ final class RollaEngineManager {
             result(nil)
 
         case "onTokenExpired":
-            print(">>> [TOKEN_CALLBACK][iOS] onTokenExpired received — host should provide fresh tokens")
             onTokenExpired?()
             result(nil)
 
