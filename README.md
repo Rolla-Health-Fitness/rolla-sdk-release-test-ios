@@ -1,38 +1,37 @@
 # Rolla SDK — iOS
 
-iOS distribution repository for the Rolla Flutter SDK. Contains Swift Package Manager and CocoaPods artifacts for integrating Rolla into native iOS apps.
+iOS distribution repository for the Rolla Flutter SDK. Contains CocoaPods artifacts for integrating Rolla into native iOS apps.
 
-**Latest version:** `0.1.0`
+**Latest version:** `0.1.1`
 
----
-
-## Swift Package Manager
-
-1. In Xcode, select your **PROJECT** (not target) in the navigator
-2. Go to **Package Dependencies** tab
-3. Click **+** → **Add Package Dependency**
-4. Enter: `https://github.com/Rolla-Health-Fitness/rolla-sdk-release-ios.git`
-5. Select version: `0.1.0`
-6. Click **Add Package**
+> **Package Manager Support:** CocoaPods is the only supported package manager at this time. Swift Package Manager (SPM) will be supported soon.
 
 ---
 
-## CocoaPods
+## Installation
 
-Add to your `Podfile`:
+Add the Rolla SDK specs repository and dependency to your `Podfile`:
 
 ```ruby
-source 'https://github.com/Rolla-Health-Fitness/rolla-sdk-release-ios.git'
+platform :ios, '14.0'
+
+source 'https://github.com/Rolla-Health-Fitness/rolla-sdk-release-test-ios.git'
 source 'https://cdn.cocoapods.org/'
 
 target 'YourApp' do
   use_frameworks!
-  pod 'RollaSDK', '0.1.0'
+  pod 'RollaSDK', '~> 0.1.1'
 end
 ```
 
 Then run `pod install`.
 
+> **Important:** Always open your project using the `.xcworkspace` file, not `.xcodeproj`.
+
+### Disable User Script Sandboxing
+
+CocoaPods requires `ENABLE_USER_SCRIPT_SANDBOXING` set to **No** in your target's Build Settings. Search for "User Script Sandboxing" under Build Options and set it to "No".
+
 ---
 
-For detailed integration instructions see [IOS_INTEGRATION.md](https://github.com/Rolla-Health-Fitness/rolla-sdk/blob/dev/IOS_INTEGRATION.md).
+For detailed integration instructions see the [iOS Integration Guide](https://github.com/Rolla-Health-Fitness/rolla-sdk-documentation/tree/main/ios).
