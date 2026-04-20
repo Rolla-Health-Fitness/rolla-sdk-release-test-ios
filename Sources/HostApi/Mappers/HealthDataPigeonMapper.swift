@@ -35,7 +35,8 @@ extension MotionPoint {
         return RollaBandMotionPoint(
             timestamp: Int64(timestamp),
             heartRate: Int64(heartRate),
-            spm: Int64(spm)
+            spm: Int64(spm),
+            identifier: identifier.map { Int64($0) }
         )
     }
 }
@@ -221,7 +222,8 @@ extension MotionData {
         return RollaBandMotionPoint(
             timestamp: Int64(timestamp),
             heartRate: Int64(heartRate),
-            spm: Int64(spm)
+            spm: Int64(spm),
+            identifier: identifier.map { Int64($0) }
         )
     }
 }

@@ -57,10 +57,18 @@ final class RollaBandDependenciesFactory {
             deviceIdentityManager: deviceIdentityManager,
             deviceManager: deviceManager
         )
-        
+
+        let firmwareUseCase = DefaultGetDeviceFirmwareUseCase(
+            commandExecutor: commandExecutor,
+            deviceIdentityManager: deviceIdentityManager,
+            deviceManager: deviceManager,
+            logger: logger
+        )
+
         let motionUseCase = RollaBandGetMotionDataUseCase(
             processor: dataProcessor,
-            parser: RollaBandMotionDataParser(logger: logger),
+            legacyParser: RollaBandMotionDataParser(logger: logger),
+            secondLevelParser: RollaBandMotionSecondLevelDataParser(logger: logger),
             deviceIdentityManager: deviceIdentityManager,
             deviceManager: deviceManager
         )
@@ -69,13 +77,6 @@ final class RollaBandDependenciesFactory {
             processor: dataProcessor,
             deviceIdentityManager: deviceIdentityManager,
             deviceManager: deviceManager
-        )
-
-        let firmwareUseCase = DefaultGetDeviceFirmwareUseCase(
-            commandExecutor: commandExecutor,
-            deviceIdentityManager: deviceIdentityManager,
-            deviceManager: deviceManager,
-            logger: logger
         )
 
         let serialNumberUseCase = DefaultGetDeviceSerialNumberUseCase(

@@ -271,11 +271,13 @@ public struct MotionData: Sendable {
     public let heartRate: Int
     /// Steps per minute (cadence)
     public let spm: Int
+    public let identifier: Int?
 
-    public init(timestamp: Int, heartRate: Int, spm: Int) {
+    public init(timestamp: Int, heartRate: Int, spm: Int, identifier: Int? = nil) {
         self.timestamp = timestamp
         self.heartRate = heartRate
         self.spm = spm
+        self.identifier = identifier
     }
 
     /// Convert from internal MotionPoint model
@@ -283,6 +285,7 @@ public struct MotionData: Sendable {
         self.timestamp = point.timestamp
         self.heartRate = point.heartRate
         self.spm = point.spm
+        self.identifier = point.identifier
     }
 }
 

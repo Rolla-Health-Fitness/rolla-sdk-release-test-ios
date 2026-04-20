@@ -629,6 +629,7 @@ struct RollaBandMotionPoint: Hashable {
   var heartRate: Int64
   /// Steps per minute
   var spm: Int64
+  var identifier: Int64? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -636,11 +637,13 @@ struct RollaBandMotionPoint: Hashable {
     let timestamp = pigeonVar_list[0] as! Int64
     let heartRate = pigeonVar_list[1] as! Int64
     let spm = pigeonVar_list[2] as! Int64
+    let identifier: Int64? = nilOrValue(pigeonVar_list[3])
 
     return RollaBandMotionPoint(
       timestamp: timestamp,
       heartRate: heartRate,
-      spm: spm
+      spm: spm,
+      identifier: identifier
     )
   }
   func toList() -> [Any?] {
@@ -648,6 +651,7 @@ struct RollaBandMotionPoint: Hashable {
       timestamp,
       heartRate,
       spm,
+      identifier,
     ]
   }
   static func == (lhs: RollaBandMotionPoint, rhs: RollaBandMotionPoint) -> Bool {

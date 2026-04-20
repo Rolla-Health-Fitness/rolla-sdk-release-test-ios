@@ -116,7 +116,6 @@ extension RollaBandWorkoutApiHandler: RollaBandWorkoutHostApi {
                 )
 
                 let syncResponse = result.toPigeonResponse()
-
                 await MainActor.run { completion(.success(syncResponse)) }
             } catch {
                 await MainActor.run { completion(.failure(error)) }

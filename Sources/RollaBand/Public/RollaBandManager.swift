@@ -191,9 +191,13 @@ public final class RollaBandManager: Sendable {
         identifier: String,
         fromTimestamp: Int
     ) async throws -> MotionSyncResult {
+        let firmwareVersion = try? await dependencies.getDeviceFirmwareUseCase.execute(
+            for: identifier
+        )
         let response = try await dependencies.getMotionDataUseCase.execute(
             for: identifier,
-            lastSyncTimestamp: fromTimestamp
+            lastSyncTimestamp: fromTimestamp,
+            firmwareVersion: firmwareVersion
         )
 
         return MotionSyncResult(

@@ -1,12 +1,12 @@
 import Foundation
 
-public final class RollaBandMotionDataParser: RollaBandDataParser, Sendable {
+public final class RollaBandMotionSecondLevelDataParser: RollaBandDataParser, Sendable {
     typealias Entry = MotionDataEntry
     typealias Block = MotionDataBlock
     typealias ParseError = BLEDataParsingError
 
     static let dataIdentifier: UInt8 = RollaBandCommand.getMotionData.rawValue
-    static let entrySize: Int = 14
+    static let entrySize: Int = 15
 
     var dataIdentifier: UInt8 { Self.dataIdentifier }
     var entrySize: Int { Self.entrySize }
@@ -26,7 +26,7 @@ public final class RollaBandMotionDataParser: RollaBandDataParser, Sendable {
             blockCreator: Self.createMotionBlock
         )
     }
-    
+
     func parseDataBlock(from data: [UInt8], lastSyncEntryBaseTimestamp: Int, lastSyncEntryTimestamp: Int) throws -> MotionDataBlock {
         return try baseParser.parseDataBlock(
             from: data,
@@ -36,30 +36,30 @@ public final class RollaBandMotionDataParser: RollaBandDataParser, Sendable {
     }
 }
 
-extension RollaBandMotionDataParser {
+extension RollaBandMotionSecondLevelDataParser {
     private static func parseMotionEntry(
         _ logger: Logging,
         _ entryBytes: [UInt8],
         _ lastSyncEntryBaseTimestamp: Int,
         _ lastSyncEntryTimestamp: Int
     ) throws -> EntryParseResult<MotionDataEntry> {
-        
+
         let hexString = entryBytes.map { String(format: "%02X", $0) }.joined(separator: " ")
         logger.debug("RAW: \(hexString)", category: .healthDataSync)
 
         guard let dataNumber = entryBytes.uint16LE(at: 1) else {
             throw BLEDataParsingError.parsingFailed("Failed to parse data number")
         }
-        
+
         let baseTimestamp = try BaseRollaBandDataParser<MotionDataEntry, MotionDataBlock>.parseTimestampFromBCD(
             from: entryBytes,
             startIndex: 3
         )
-        
+
         guard baseTimestamp >= lastSyncEntryBaseTimestamp else {
             return .filtered(dataNumber: Int(dataNumber), baseTimestamp: baseTimestamp)
         }
-        
+
         guard let heartRateByte = entryBytes.uint8(at: 9) else {
             throw BLEDataParsingError.parsingFailed("Failed to parse heart rate")
         }
@@ -70,6 +70,7 @@ extension RollaBandMotionDataParser {
 
         let heartRate = Int(heartRateByte)
         let spm = Int(spmValue)
+        let identifier = Int(entryBytes[14])
 
         var motionPoints: [MotionPoint] = []
 
@@ -78,26 +79,25 @@ extension RollaBandMotionDataParser {
                 timestamp: baseTimestamp,
                 heartRate: heartRate,
                 spm: spm,
-                identifier: nil
+                identifier: identifier
             ))
         }
-        
-        // Debug logging
+
         let date = Date(timeIntervalSince1970: TimeInterval(baseTimestamp / 1000))
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.timeZone = TimeZone(abbreviation: "UTC")
         let dateString = formatter.string(from: date)
-        
-        logger.info("PARSED: ID=\(dataNumber), Time=\(dateString) UTC, HR=\(heartRate), SPM=\(spm)", category: .healthDataSync)
-        
+
+        logger.info("PARSED: ID=\(dataNumber), Time=\(dateString) UTC, HR=\(heartRate), SPM=\(spm), id=\(identifier)", category: .healthDataSync)
+
         return .success(MotionDataEntry(
             dataNumber: Int(dataNumber),
             baseTimestamp: baseTimestamp,
             motionPoints: motionPoints
         ))
     }
-    
+
     private static func createMotionBlock(
         _ entries: [MotionDataEntry],
         _ totalEntriesCount: Int,
@@ -112,4 +112,3 @@ extension RollaBandMotionDataParser {
         )
     }
 }
-
