@@ -1,8 +1,8 @@
 # Rolla SDK — iOS
 
-iOS distribution repository for the Rolla Flutter SDK. Contains CocoaPods artifacts for integrating Rolla into native iOS apps.
+iOS distribution repository for the Rolla Flutter SDK. Contains artifacts for integrating Rolla into native iOS apps.
 
-**Latest version:** `0.1.1`
+**Latest version:** `0.1.2`
 
 > **Package Manager Support:** CocoaPods is the only supported package manager at this time. Swift Package Manager (SPM) will be supported soon.
 
@@ -20,7 +20,7 @@ source 'https://cdn.cocoapods.org/'
 
 target 'YourApp' do
   use_frameworks!
-  pod 'RollaSDK', '~> 0.1.1'
+  pod 'RollaSDK', '~> 0.1.2'
 end
 ```
 
@@ -34,4 +34,4 @@ CocoaPods requires `ENABLE_USER_SCRIPT_SANDBOXING` set to **No** in your target'
 
 ---
 
-For detailed integration instructions see the [iOS Integration Guide](https://github.com/Rolla-Health-Fitness/rolla-sdk-documentation/tree/main/ios).
+For detailed integration instructions see the [iOS Integration Guide](https://github.com/Rolla-Health-Fitness/rolla-sdk-documentation/tree/dev/ios).
