@@ -23,6 +23,11 @@ public final class DefaultLocationTrackingUseCase: LocationTrackingUseCase {
 
         logger.info("Starting location tracking for activity: \(activityType)", category: .location)
 
+        // Open the debug capture file BEFORE any processor setup so that
+        // logConfigSnapshot and any early state events land in the JSONL
+        // rather than being silently dropped (write() bails while the
+        // file handle is still nil). No-op if debug capture is disabled.
+        LocationDebugCapture.shared.startSession()
         await dataProcessor.updateConfiguration(for: activityType)
         await dataProcessor.resetCalibration()
         await dataProcessor.setTrackingStartTime(Date())
@@ -36,6 +41,10 @@ public final class DefaultLocationTrackingUseCase: LocationTrackingUseCase {
     }
     
     public func stopLocationTracking() async {
+        // Emit the pipeline-summary BEFORE the logger closes so it
+        // lands at the end of the JSONL file for easy post-hoc triage.
+        await dataProcessor.finalizeSession()
+        LocationDebugCapture.shared.stopSession()
         await locationManager.stopLocationTracking()
         logger.success("Location tracking stopped", category: .location)
     }

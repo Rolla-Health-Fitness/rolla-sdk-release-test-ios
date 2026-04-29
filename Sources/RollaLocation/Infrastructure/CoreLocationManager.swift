@@ -63,22 +63,12 @@ public final class CoreLocationManager: LocationManaging, @unchecked Sendable {
         
         locationManager.desiredAccuracy = config.desiredAccuracy
         locationManager.distanceFilter = config.distanceFilter
-        
-        // Configure Core Location activity type based on the current activity
-        if let activityType = currentActivityType {
-            switch activityType {
-            case .run, .cycling, .walk:
-                locationManager.activityType = .fitness
-            default:
-                locationManager.activityType = .other
-            }
-        } else {
-            locationManager.activityType = .other
-        }
-        
+        locationManager.activityType = config.clActivityType
+        locationManager.pausesLocationUpdatesAutomatically = false
+
         if config.allowsBackgroundLocationUpdates {
             locationManager.allowsBackgroundLocationUpdates = true
-            locationManager.pausesLocationUpdatesAutomatically = false
+            locationManager.showsBackgroundLocationIndicator = true
         }
         
         locationManager.startUpdatingLocation()

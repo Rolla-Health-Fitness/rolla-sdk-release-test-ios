@@ -15,46 +15,30 @@ public enum CalibrationFailureReason: Sendable {
 
 public enum GPSCalibrationState: Sendable {
     case notStarted
-    case calibrating(startTime: Date, pointsCollected: Int, calibratedAt: Date?)
+    case calibrating(startTime: Date, pointsCollected: Int)
     case calibrated(baseLocation: Coordinate, accuracy: Double, calibratedAt: Date)
     case failed(reason: CalibrationFailureReason)
     
     var isCalibrated: Bool {
-        switch self {
-        case .calibrated:
-            return true
-        default:
-            return false
-        }
+        if case .calibrated = self { return true }
+        return false
     }
     
     var isCalibrating: Bool {
-        switch self {
-        case .calibrating:
-            return true
-        default:
-            return false
-        }
+        if case .calibrating = self { return true }
+        return false
     }
     
     var calibrationAge: TimeInterval? {
-        switch self {
-        case .calibrated(_, _, let calibratedAt):
-            return Date().timeIntervalSince(calibratedAt)
-        case .calibrating:
-            return nil
-        default:
-            return nil
+        if case .calibrated(_, _, let at) = self {
+            return Date().timeIntervalSince(at)
         }
+        return nil
     }
     
     var startTime: Date? {
-        switch self {
-        case .calibrating(let startTime, _, _):
-            return startTime
-        default:
-            return nil
-        }
+        if case .calibrating(let t, _) = self { return t }
+        return nil
     }
 }
 
@@ -62,13 +46,24 @@ public actor GPSCalibrationManager {
     private var config: GPSCalibrationConfig
     private let clock: ClockProtocol
     private let logger: Logging
+    
     private var state: GPSCalibrationState = .notStarted
+    
+    // Used only during .calibrating
     private var calibrationPoints: [LocationData] = []
     private var calibrationStartTime: CFTimeInterval = 0
+    
+    // Used only during .calibrated (for TTL and future use)
     private var lastCheckCoord: Coordinate?
     private var lastCheckTime: Date?
-    private var badAccuracyCount = 0
-    private var lastRecalibrationTriggerAt: Date?
+    private var calibrationUptimeAtCalibrated: CFTimeInterval = 0
+    
+    private var lastFailureReason: CalibrationFailureReason?
+    private var lastFailureAt: Date?
+    
+    private let goodFixAccuracyForRetry: CLLocationAccuracy = 15.0
+    private let ttlPoorAccuracyThreshold: CLLocationAccuracy = 30.0
+    private let ttlFarFromBaseMeters: Double = 2000.0
     
     init(
         config: GPSCalibrationConfig = .default,
@@ -80,30 +75,23 @@ public actor GPSCalibrationManager {
         self.logger = logger
         
 #if DEBUG
-        precondition(config.maxPointsForCalibration >= config.minPointsForCalibration,
-                     "maxPointsForCalibration must be >= minPointsForCalibration")
-        precondition(config.stabilityThreshold > 0,
-                     "stabilityThreshold must be positive")
-        precondition(config.calibrationDuration > 0,
-                     "calibrationDuration must be positive")
-        precondition(config.recentPointsForStability <= config.minPointsForCalibration,
-                     "recentPointsForStability must be <= minPointsForCalibration")
+        precondition(config.maxPointsForCalibration >= config.minPointsForCalibration)
+        precondition(config.stabilityThreshold > 0)
+        precondition(config.calibrationDuration > 0)
+        precondition(config.recentPointsForStability <= config.minPointsForCalibration)
 #endif
     }
+    
     func processLocation(_ locationData: LocationData) -> CalibrationResult {
         switch state {
         case .notStarted:
             return startCalibration(with: locationData)
             
-        case .calibrating(let startTime, let pointsCollected, _):
-            return continueCalibration(
-                with: locationData,
-                startTime: startTime,
-                pointsCollected: pointsCollected
-            )
+        case .calibrating(let startTime, _):
+            return continueCalibration(with: locationData, startTime: startTime)
             
         case .calibrated(let baseLocation, let accuracy, let calibratedAt):
-            return validateExistingCalibration(
+            return validateAndPassThrough(
                 with: locationData,
                 baseLocation: baseLocation,
                 accuracy: accuracy,
@@ -111,7 +99,21 @@ public actor GPSCalibrationManager {
             )
             
         case .failed:
-            return .calibrated(locationData)
+            if let failAt = lastFailureAt {
+                let timeSinceFailure = clock.currentDate().timeIntervalSince(failAt)
+                
+                let cooldown = locationData.horizontalAccuracy <= goodFixAccuracyForRetry
+                ? config.retryAfterFailureCooldownSeconds
+                : config.retryAfterFailureCooldownSeconds * 6.0
+                
+                if timeSinceFailure >= cooldown {
+                    lastFailureAt = nil
+                    lastFailureReason = nil
+                    state = .notStarted
+                    return startCalibration(with: locationData)
+                }
+            }
+            return .failed(reason: lastFailureReason ?? .poorSignalQuality)
         }
     }
     
@@ -121,192 +123,127 @@ public actor GPSCalibrationManager {
         calibrationStartTime = 0
         lastCheckCoord = nil
         lastCheckTime = nil
-        badAccuracyCount = 0
-        lastRecalibrationTriggerAt = nil
+        calibrationUptimeAtCalibrated = 0
+        lastFailureReason = nil
+        lastFailureAt = nil
     }
     
     func updateConfiguration(_ newConfig: GPSCalibrationConfig) {
         self.config = newConfig
-    }
-    
-    func getState() -> GPSCalibrationState {
-        return state
-    }
-    func getProgress() -> CalibrationProgress? {
-        switch state {
-        case .calibrating(_, let pointsCollected, _):
-            let elapsed = clock.uptime() - calibrationStartTime
-            let timeProgress = min(elapsed / config.calibrationDuration, 1.0)
-            let pointsProgress = Double(pointsCollected) / Double(config.minPointsForCalibration)
-            let remainingTime = max(config.calibrationDuration - elapsed, 0.0)
-            
-            return CalibrationProgress(
-                timeProgress: timeProgress,
-                pointsProgress: pointsProgress,
-                pointsCollected: pointsCollected,
-                pointsRequired: config.minPointsForCalibration,
-                remainingTime: remainingTime,
-                isStable: pointsCollected >= config.recentPointsForStability ? isStableCentroid() : false
-            )
-        default:
-            return nil
-        }
     }
 }
 
 extension GPSCalibrationManager {
     private func startCalibration(with locationData: LocationData) -> CalibrationResult {
         calibrationStartTime = clock.uptime()
-        let startedAt = Date()
-        state = .calibrating(
-            startTime: startedAt,
-            pointsCollected: 0,
-            calibratedAt: nil
-        )
+        state = .calibrating(startTime: clock.currentDate(), pointsCollected: 0)
         calibrationPoints.removeAll()
-        
-        return continueCalibration(with: locationData, startTime: startedAt, pointsCollected: 0)
+        return continueCalibration(with: locationData, startTime: clock.currentDate())
     }
     
-    private func continueCalibration(
-        with locationData: LocationData,
-        startTime: Date,
-        pointsCollected: Int
-    ) -> CalibrationResult {
+    private func continueCalibration(with locationData: LocationData, startTime: Date) -> CalibrationResult {
         let elapsed = clock.uptime() - calibrationStartTime
+        
         if elapsed > config.calibrationDuration {
             return finishCalibration()
         }
         
-        if locationData.horizontalAccuracy > 0 && locationData.horizontalAccuracy <= config.maxCalibrationAccuracy {
+        if locationData.horizontalAccuracy > 0,
+           locationData.horizontalAccuracy <= config.maxCalibrationAccuracy {
             calibrationPoints.append(locationData)
             
             if calibrationPoints.count > config.maxPointsForCalibration {
-                calibrationPoints.removeFirst()
+                calibrationPoints = Array(calibrationPoints.suffix(config.maxPointsForCalibration))
             }
             
-            let newPointsCollected = calibrationPoints.count
-            state = .calibrating(
-                startTime: startTime,
-                pointsCollected: newPointsCollected,
-                calibratedAt: nil
-            )
+            state = .calibrating(startTime: clock.currentDate(), pointsCollected: calibrationPoints.count)
             
-            if newPointsCollected >= config.minPointsForCalibration && isStableCentroid() {
+            let (stable, _) = isStableCentroid()
+            if calibrationPoints.count >= config.minPointsForCalibration && stable {
                 return finishCalibration()
             }
         }
         
         return .calibrating
     }
-    
-    private func validateExistingCalibration(
+}
+
+extension GPSCalibrationManager {
+    private func validateAndPassThrough(
         with locationData: LocationData,
         baseLocation: Coordinate,
         accuracy: Double,
         calibratedAt: Date
     ) -> CalibrationResult {
-        let age = Date().timeIntervalSince(calibratedAt)
+        let age = clock.uptime() - calibrationUptimeAtCalibrated
         
-        if age > config.calibrationTTL {
-            return startCalibration(with: locationData)
+        if age <= config.calibrationTTL {
+            lastCheckCoord = locationData.coordinate
+            lastCheckTime = locationData.timestamp
+            return .calibrated(locationData)
         }
         
-        if locationData.horizontalAccuracy > accuracy * config.recalibrationAccuracySpike {
-            badAccuracyCount += 1
-            if badAccuracyCount >= 3 {
-                startBackgroundRecalibrationIfCool()
-                badAccuracyCount = 0
-                updateValidationTracking(locationData)
-                return .calibrated(locationData)
-            }
-        } else {
-            badAccuracyCount = 0
-        }
+        let distanceFromBase = locationData.coordinate.distance(to: baseLocation)
+        let poorAccuracy = locationData.horizontalAccuracy > ttlPoorAccuracyThreshold
+        let farFromBase = distanceFromBase > ttlFarFromBaseMeters
         
-        if let lastCoord = lastCheckCoord, let lastTime = lastCheckTime {
-            let dd = lastCoord.distance(to: locationData.coordinate)
-            let dt = locationData.timestamp.timeIntervalSince(lastTime)
-            let impliedSpeed = dt > 0 ? dd / dt : 0
+        if poorAccuracy || farFromBase {
+            logger.info("Calibration TTL expired (\(Int(age))s) — updating baseline passively (accuracy=\(String(format: "%.0f", locationData.horizontalAccuracy))m, distance=\(String(format: "%.0f", distanceFromBase))m)", category: .location)
             
-            if dd > config.recalibrationDistanceJump || impliedSpeed > 30.0 {
-                
-                startBackgroundRecalibrationIfCool()
-                updateValidationTracking(locationData)
-                return .calibrated(locationData)
-            }
+            calibrationUptimeAtCalibrated = clock.uptime()
+            let newCalibratedAt = clock.currentDate()
+            state = .calibrated(baseLocation: locationData.coordinate, accuracy: locationData.horizontalAccuracy, calibratedAt: newCalibratedAt)
+            
+            lastCheckCoord = locationData.coordinate
+            lastCheckTime = locationData.timestamp
+            return .calibrated(locationData)
         }
         
-        updateValidationTracking(locationData)
-        return .calibrated(locationData)
-    }
-    
-    private func updateValidationTracking(_ locationData: LocationData) {
         lastCheckCoord = locationData.coordinate
         lastCheckTime = locationData.timestamp
+        return .calibrated(locationData)
     }
-    
-    private func calculateSimpleCentroid() -> (Coordinate, Double) {
-        guard !calibrationPoints.isEmpty else {
-            let firstPoint = calibrationPoints.first!
-            return (firstPoint.coordinate, firstPoint.horizontalAccuracy)
-        }
-        
-        var sumLat = 0.0, sumLon = 0.0
-        var accuracies: [Double] = []
-        
-        for point in calibrationPoints {
-            sumLat += point.coordinate.latitude
-            sumLon += point.coordinate.longitude
-            accuracies.append(point.horizontalAccuracy)
-        }
-        
-        let centroid = Coordinate(
-            latitude: sumLat / Double(calibrationPoints.count),
-            longitude: sumLon / Double(calibrationPoints.count)
-        )
-        
-        accuracies.sort()
-        let medianAccuracy = accuracies[accuracies.count / 2]
-        
-        return (centroid, medianAccuracy)
-    }
-    
+}
+
+extension GPSCalibrationManager {
     private func finishCalibration() -> CalibrationResult {
         guard !calibrationPoints.isEmpty else {
-            state = .failed(reason: .poorSignalQuality)
-            return .failed(reason: .poorSignalQuality)
+            return failWith(.poorSignalQuality, message: "Calibration failed — no points collected")
+        }
+        
+        if calibrationPoints.count < config.minPointsForCalibration {
+            return failWith(.timeout(
+                pointsCollected: calibrationPoints.count,
+                requiredPoints: config.minPointsForCalibration
+            ), message: "Calibration failed — timeout with \(calibrationPoints.count) points (need \(config.minPointsForCalibration))")
+        }
+        
+        let (stable, maxDeviation) = isStableCentroid()
+        if !stable {
+            return failWith(.insufficientStability(
+                maxDeviation: maxDeviation,
+                requiredStability: config.stabilityThreshold
+            ), message: "Calibration failed — points too scattered (max \(String(format: "%.1f", maxDeviation)) m)")
         }
         
         let sortedByAccuracy = calibrationPoints.sorted { $0.horizontalAccuracy < $1.horizontalAccuracy }
-        
         let medianIndex = sortedByAccuracy.count / 2
-        let medianAccuracy: Double
-        let medianPoint: LocationData
-        
-        if sortedByAccuracy.count % 2 == 0 {
-            let mid1 = sortedByAccuracy[medianIndex - 1]
-            let mid2 = sortedByAccuracy[medianIndex]
-            medianAccuracy = (mid1.horizontalAccuracy + mid2.horizontalAccuracy) / 2.0
-            medianPoint = mid1.horizontalAccuracy < mid2.horizontalAccuracy ? mid1 : mid2
-        } else {
-            medianAccuracy = sortedByAccuracy[medianIndex].horizontalAccuracy
-            medianPoint = sortedByAccuracy[medianIndex]
-        }
+        let medianPoint = sortedByAccuracy[medianIndex]
+        let medianAccuracy: Double = sortedByAccuracy.count.isMultiple(of: 2)
+        ? (sortedByAccuracy[medianIndex - 1].horizontalAccuracy + medianPoint.horizontalAccuracy) / 2
+        : medianPoint.horizontalAccuracy
         
         if medianAccuracy > config.medianAccuracyThreshold {
-            state = .failed(reason: .poorSignalQuality)
-            return .failed(reason: .poorSignalQuality)
+            return failWith(.poorSignalQuality, message: "Calibration failed — median accuracy \(String(format: "%.1f", medianAccuracy)) m too poor")
         }
         
-        let (centroid, fusedAccuracy) = calculateSimpleCentroid()
-        let calibratedAt = Date()
+        guard let (centroid, fusedAccuracy) = calculateSimpleCentroid() else {
+            return failWith(.poorSignalQuality)
+        }
         
-        state = .calibrated(
-            baseLocation: centroid,
-            accuracy: fusedAccuracy,
-            calibratedAt: calibratedAt
-        )
+        calibrationUptimeAtCalibrated = clock.uptime()
+        let calibratedAt = clock.currentDate()
+        state = .calibrated(baseLocation: centroid, accuracy: fusedAccuracy, calibratedAt: calibratedAt)
         
         let calibratedLocation = LocationData(
             coordinate: centroid,
@@ -318,46 +255,94 @@ extension GPSCalibrationManager {
             timestamp: medianPoint.timestamp
         )
         
+        lastCheckCoord = centroid
+        lastCheckTime = calibratedAt
+        logger.info("Calibration OK at (\(String(format: "%.6f", centroid.latitude)), \(String(format: "%.6f", centroid.longitude)))", category: .location)
         return .calibrated(calibratedLocation)
     }
     
-    private func isStableCentroid() -> Bool {
-        let n = config.recentPointsForStability
-        guard calibrationPoints.count >= n else {
-            return false
+    private func failWith(_ reason: CalibrationFailureReason, message: String? = nil) -> CalibrationResult {
+        state = .failed(reason: reason)
+        lastFailureReason = reason
+        lastFailureAt = clock.currentDate()
+        if let message {
+            logger.warning(message, category: .location)
         }
-        
-        let recentPoints = Array(calibrationPoints.suffix(n))
-        guard recentPoints.count >= 2 else { return false }
-        
-        var sumLat = 0.0, sumLon = 0.0
-        for point in recentPoints {
-            sumLat += point.coordinate.latitude
-            sumLon += point.coordinate.longitude
-        }
-        let centroid = Coordinate(
-            latitude: sumLat / Double(recentPoints.count),
-            longitude: sumLon / Double(recentPoints.count)
-        )
-        
-        for point in recentPoints {
-            let distance = centroid.distance(to: point.coordinate)
-            if distance > config.stabilityThreshold {
-                return false
-            }
-        }
-        
-        return true
-    }
-    
-    private func startBackgroundRecalibrationIfCool() {
-        let now = Date()
-        if let last = lastRecalibrationTriggerAt, now.timeIntervalSince(last) < 60 {
-            return
-        }
-        lastRecalibrationTriggerAt = now
-        state = .notStarted
+        return .failed(reason: reason)
     }
 }
 
-
+extension GPSCalibrationManager {
+    private func calculateSimpleCentroid() -> (Coordinate, Double)? {
+        guard !calibrationPoints.isEmpty else { return nil }
+        
+        var sumX = 0.0, sumY = 0.0, sumZ = 0.0
+        var accuracies: [Double] = []
+        for p in calibrationPoints {
+            let latRad = p.coordinate.latitude * .pi / 180.0
+            let lonRad = p.coordinate.longitude * .pi / 180.0
+            sumX += cos(latRad) * cos(lonRad)
+            sumY += cos(latRad) * sin(lonRad)
+            sumZ += sin(latRad)
+            accuracies.append(p.horizontalAccuracy)
+        }
+        
+        let countDouble = Double(calibrationPoints.count)
+        let avgX = sumX / countDouble
+        let avgY = sumY / countDouble
+        let avgZ = sumZ / countDouble
+        
+        let centralLon = atan2(avgY, avgX)
+        let centralSquareRoot = sqrt(avgX * avgX + avgY * avgY)
+        let centralLat = atan2(avgZ, centralSquareRoot)
+        
+        accuracies.sort()
+        let centroid = Coordinate(
+            latitude: centralLat * 180.0 / .pi,
+            longitude: centralLon * 180.0 / .pi
+        )
+        let medianAccuracy = accuracies[accuracies.count / 2]
+        return (centroid, medianAccuracy)
+    }
+    
+    private func isStableCentroid() -> (Bool, Double) {
+        let n = config.recentPointsForStability
+        guard calibrationPoints.count >= n else { return (false, .infinity) }
+        
+        let recent = Array(calibrationPoints.suffix(n))
+        guard recent.count >= 2 else { return (false, .infinity) }
+        
+        var sumX = 0.0, sumY = 0.0, sumZ = 0.0
+        for p in recent {
+            let latRad = p.coordinate.latitude * .pi / 180.0
+            let lonRad = p.coordinate.longitude * .pi / 180.0
+            sumX += cos(latRad) * cos(lonRad)
+            sumY += cos(latRad) * sin(lonRad)
+            sumZ += sin(latRad)
+        }
+        
+        let countDouble = Double(recent.count)
+        let avgX = sumX / countDouble
+        let avgY = sumY / countDouble
+        let avgZ = sumZ / countDouble
+        
+        let centralLon = atan2(avgY, avgX)
+        let centralSquareRoot = sqrt(avgX * avgX + avgY * avgY)
+        let centralLat = atan2(avgZ, centralSquareRoot)
+        
+        let centroid = Coordinate(
+            latitude: centralLat * 180.0 / .pi,
+            longitude: centralLon * 180.0 / .pi
+        )
+        
+        var maxDeviation = 0.0
+        for p in recent {
+            let d = centroid.distance(to: p.coordinate)
+            maxDeviation = max(maxDeviation, d)
+            if d > config.stabilityThreshold {
+                return (false, maxDeviation)
+            }
+        }
+        return (true, maxDeviation)
+    }
+}

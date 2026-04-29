@@ -4,6 +4,7 @@ import QuartzCore
 public protocol ClockProtocol: Sendable {
     func now() -> CFTimeInterval
     func uptime() -> CFTimeInterval
+    func currentDate() -> Date
 }
 
 public struct SystemClock: ClockProtocol {
@@ -15,5 +16,9 @@ public struct SystemClock: ClockProtocol {
 
     public func uptime() -> CFTimeInterval {
         return CACurrentMediaTime()
+    }
+
+    public func currentDate() -> Date {
+        return Date(timeIntervalSinceReferenceDate: now())
     }
 }

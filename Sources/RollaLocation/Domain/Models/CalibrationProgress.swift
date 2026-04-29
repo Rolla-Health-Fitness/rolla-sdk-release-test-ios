@@ -1,10 +1,10 @@
 import Foundation
 
 public struct CalibrationProgress: Sendable {
-    let timeProgress: Double
-    let pointsProgress: Double      
-    let pointsCollected: Int
-    let pointsRequired: Int
-    let remainingTime: Double       // seconds
-    let isStable: Bool
+    public let timeProgress: Double
+    public let pointsProgress: Double
+    public let pointsCollected: Int
+    public let pointsRequired: Int
+    public let remainingTime: Double       // seconds
+    public let isStable: Bool
 }

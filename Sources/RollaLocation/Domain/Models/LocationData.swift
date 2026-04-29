@@ -29,15 +29,19 @@ public struct LocationData: Sendable {
 }
 
 extension LocationData: Equatable {
+    private static let coordinateTolerance = 1e-9
+    private static let scalarTolerance = 1e-6
+    private static let timestampTolerance = 0.001
+
     public static func == (lhs: LocationData, rhs: LocationData) -> Bool {
-        return lhs.coordinate.latitude == rhs.coordinate.latitude &&
-        lhs.coordinate.longitude == rhs.coordinate.longitude &&
-        lhs.altitude == rhs.altitude &&
-        lhs.horizontalAccuracy == rhs.horizontalAccuracy &&
-        lhs.verticalAccuracy == rhs.verticalAccuracy &&
-        lhs.timestamp == rhs.timestamp &&
-        lhs.speed == rhs.speed &&
-        lhs.course == rhs.course
+        abs(lhs.coordinate.latitude - rhs.coordinate.latitude) < coordinateTolerance &&
+        abs(lhs.coordinate.longitude - rhs.coordinate.longitude) < coordinateTolerance &&
+        abs(lhs.altitude - rhs.altitude) < scalarTolerance &&
+        abs(lhs.horizontalAccuracy - rhs.horizontalAccuracy) < scalarTolerance &&
+        abs(lhs.verticalAccuracy - rhs.verticalAccuracy) < scalarTolerance &&
+        abs(lhs.timestamp.timeIntervalSince(rhs.timestamp)) < timestampTolerance &&
+        abs(lhs.speed - rhs.speed) < scalarTolerance &&
+        abs(lhs.course - rhs.course) < scalarTolerance
     }
 
     private var isNullIsland: Bool {
