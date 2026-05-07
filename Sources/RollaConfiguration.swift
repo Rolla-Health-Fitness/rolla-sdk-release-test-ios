@@ -10,7 +10,6 @@ public struct RollaConfiguration {
     public let environment: String
     public let modules: [String]?
     public let branding: RollaBranding?
-    public let showSettingsButton: Bool
 
     public init(
         token: String,
@@ -20,8 +19,7 @@ public struct RollaConfiguration {
         partnerId: String,
         environment: String = "rnd",
         modules: [String]? = nil,
-        branding: RollaBranding? = nil,
-        showSettingsButton: Bool = true
+        branding: RollaBranding? = nil
     ) {
         self.token = token
         self.refreshToken = refreshToken
@@ -31,7 +29,6 @@ public struct RollaConfiguration {
         self.environment = environment
         self.modules = modules
         self.branding = branding
-        self.showSettingsButton = showSettingsButton
     }
 }
 
