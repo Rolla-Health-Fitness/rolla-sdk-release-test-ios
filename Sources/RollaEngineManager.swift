@@ -122,8 +122,8 @@ final class RollaEngineManager {
             args["tokenExpiresIn"] = Int(expiresIn)
         }
 
-        if !config.disabledModules.isEmpty {
-            args["disabledModules"] = config.disabledModules.map { $0.rawValue }
+        if let modules = config.modules {
+            args["modules"] = modules
         }
 
         if let branding = config.branding {

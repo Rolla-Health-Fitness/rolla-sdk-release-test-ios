@@ -8,7 +8,7 @@ public struct RollaConfiguration {
     public let userId: String?
     public let partnerId: String
     public let environment: String
-    public let disabledModules: Set<RollaDisabledModule>
+    public let modules: [String]?
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
 
@@ -19,7 +19,7 @@ public struct RollaConfiguration {
         userId: String? = nil,
         partnerId: String,
         environment: String = "rnd",
-        disabledModules: Set<RollaDisabledModule> = [],
+        modules: [String]? = nil,
         branding: RollaBranding? = nil,
         showSettingsButton: Bool = true
     ) {
@@ -29,7 +29,7 @@ public struct RollaConfiguration {
         self.userId = userId
         self.partnerId = partnerId
         self.environment = environment
-        self.disabledModules = disabledModules
+        self.modules = modules
         self.branding = branding
         self.showSettingsButton = showSettingsButton
     }
