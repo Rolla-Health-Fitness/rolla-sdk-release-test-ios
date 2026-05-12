@@ -14,7 +14,19 @@
 
 ### Both platforms
 
-- **[improvement] TEST ENTRY — validating release pipeline.** Temporary bullet used to verify the test-release What's New extraction. Will be reverted after `test-0.1.11` is observed.
+- **[improvement] TEST — shared bullet A.** Validates that the first Both-platforms entry is preserved across the sync.
+- **[feature] TEST — shared bullet B.** Validates that multiple bullets within a single sub-section render with the right spacing.
+- **[fix] TEST — shared bullet C.** Validates that three consecutive bullets stay grouped under one sub-section header.
+
+### Android
+
+- **[breaking] TEST — android-only bullet A.** Validates that the Android sub-section appears when populated.
+- **[improvement] TEST — android-only bullet B.** Validates multi-bullet rendering under Android.
+
+### iOS
+
+- **[fix] TEST — ios-only bullet A.** Validates that the iOS sub-section also flows through cleanly.
+- **[documentation] TEST — ios-only bullet B.** Validates iOS bullets with the [documentation] tag.
 
 ---
 
