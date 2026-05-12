@@ -16,14 +16,6 @@
 
 - **[improvement] TEST ENTRY — validating release pipeline.** Temporary bullet used to verify the test-release What's New extraction. Will be reverted after `test-0.1.11` is observed.
 
-### Android
-
-_Nothing yet._
-
-### iOS
-
-_Nothing yet._
-
 ---
 
 ## 0.1.10
