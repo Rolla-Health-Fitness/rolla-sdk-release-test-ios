@@ -25,6 +25,8 @@ struct LiveWorkoutAttributes: ActivityAttributes {
         var heartRateBpm: Int?
         /// User-specific HR max (bpm) used to compute zones (percent of HRmax).
         var maxHeartRateBpm: Int?
+        /// True when the workout runs in phone-only mode (no band metrics UI).
+        var isPhoneOnly: Bool = false
         var isPaused: Bool
         var isBandConnected: Bool
         /// Localized message (provided by the app) to display when the band is disconnected.

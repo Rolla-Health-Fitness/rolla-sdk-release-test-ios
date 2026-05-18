@@ -146,6 +146,7 @@ final class LiveWorkoutBridge: NSObject {
         let staleMessage = args["staleMessage"] as? String
         let heartRateBpm = parseOptionalInt(args["heartRateBpm"])
         let maxHeartRateBpm = parseOptionalInt(args["maxHeartRateBpm"])
+        let isPhoneOnly = args["isPhoneOnly"] as? Bool ?? false
 
         // Build ActivityKit attributes (fixed data)
         let attributes = LiveWorkoutAttributes(
@@ -162,6 +163,7 @@ final class LiveWorkoutBridge: NSObject {
             timerStartDate: timerStartDate,
             heartRateBpm: heartRateBpm,
             maxHeartRateBpm: maxHeartRateBpm,
+            isPhoneOnly: isPhoneOnly,
             isPaused: false,
             isBandConnected: isBandConnected,
             disconnectedMessage: disconnectedMessage,
@@ -242,6 +244,7 @@ final class LiveWorkoutBridge: NSObject {
         let staleMessage = args["staleMessage"] as? String
         let heartRateBpm = parseOptionalInt(args["heartRateBpm"])
         let maxHeartRateBpm = parseOptionalInt(args["maxHeartRateBpm"])
+        let isPhoneOnly = args["isPhoneOnly"] as? Bool ?? false
 
         // Find the activity (check cache first, then scan all activities)
         let activity = activitiesById[activityId]
@@ -259,6 +262,7 @@ final class LiveWorkoutBridge: NSObject {
             timerStartDate: timerStartDate,
             heartRateBpm: heartRateBpm,
             maxHeartRateBpm: maxHeartRateBpm,
+            isPhoneOnly: isPhoneOnly,
             isPaused: isPaused,
             isBandConnected: isBandConnected,
             disconnectedMessage: disconnectedMessage,
