@@ -218,18 +218,6 @@ enum RollaBandSleepStageValue: Int {
   case awake = 3
 }
 
-/// Authorization status for the phone's pedometer / motion sensors.
-enum PedometerPermissionStatus: Int {
-  /// Permission has been granted by the user.
-  case granted = 0
-  /// Permission has been explicitly denied by the user.
-  case denied = 1
-  /// Permission is restricted (e.g. parental controls on iOS, or sensor unavailable).
-  case restricted = 2
-  /// Permission has not been requested yet (iOS only).
-  case notDetermined = 3
-}
-
 /// Represents a discovered or connected Bluetooth device
 ///
 /// Contains all necessary information about a Bluetooth device including
@@ -747,36 +735,30 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
       }
       return nil
     case 136:
-      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
-      if let enumResultAsInt = enumResultAsInt {
-        return PedometerPermissionStatus(rawValue: enumResultAsInt)
-      }
-      return nil
-    case 137:
       return BluetoothDevice.fromList(self.readValue() as! [Any?])
-    case 138:
+    case 137:
       return UserData.fromList(self.readValue() as! [Any?])
-    case 139:
+    case 138:
       return GpsData.fromList(self.readValue() as! [Any?])
-    case 140:
+    case 139:
       return RollaBandStep.fromList(self.readValue() as! [Any?])
-    case 141:
+    case 140:
       return RollaBandStepsSyncResponse.fromList(self.readValue() as! [Any?])
-    case 142:
+    case 141:
       return RollaBandHeartRate.fromList(self.readValue() as! [Any?])
-    case 143:
+    case 142:
       return RollaBandHeartRateSyncResponse.fromList(self.readValue() as! [Any?])
-    case 144:
+    case 143:
       return RollaBandHRV.fromList(self.readValue() as! [Any?])
-    case 145:
+    case 144:
       return RollaBandHRVSyncResponse.fromList(self.readValue() as! [Any?])
-    case 146:
+    case 145:
       return RollaBandSleepStage.fromList(self.readValue() as! [Any?])
-    case 147:
+    case 146:
       return RollaBandSleepSyncResponse.fromList(self.readValue() as! [Any?])
-    case 148:
+    case 147:
       return RollaBandMotionPoint.fromList(self.readValue() as! [Any?])
-    case 149:
+    case 148:
       return RollaBandMotionSyncResponse.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -807,47 +789,44 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
     } else if let value = value as? RollaBandSleepStageValue {
       super.writeByte(135)
       super.writeValue(value.rawValue)
-    } else if let value = value as? PedometerPermissionStatus {
-      super.writeByte(136)
-      super.writeValue(value.rawValue)
     } else if let value = value as? BluetoothDevice {
-      super.writeByte(137)
+      super.writeByte(136)
       super.writeValue(value.toList())
     } else if let value = value as? UserData {
-      super.writeByte(138)
+      super.writeByte(137)
       super.writeValue(value.toList())
     } else if let value = value as? GpsData {
-      super.writeByte(139)
+      super.writeByte(138)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandStep {
-      super.writeByte(140)
+      super.writeByte(139)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandStepsSyncResponse {
-      super.writeByte(141)
+      super.writeByte(140)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandHeartRate {
-      super.writeByte(142)
+      super.writeByte(141)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandHeartRateSyncResponse {
-      super.writeByte(143)
+      super.writeByte(142)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandHRV {
-      super.writeByte(144)
+      super.writeByte(143)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandHRVSyncResponse {
-      super.writeByte(145)
+      super.writeByte(144)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandSleepStage {
-      super.writeByte(146)
+      super.writeByte(145)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandSleepSyncResponse {
-      super.writeByte(147)
+      super.writeByte(146)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandMotionPoint {
-      super.writeByte(148)
+      super.writeByte(147)
       super.writeValue(value.toList())
     } else if let value = value as? RollaBandMotionSyncResponse {
-      super.writeByte(149)
+      super.writeByte(148)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -2216,134 +2195,6 @@ class RollaPermissionsHostApiSetup {
       }
     } else {
       requestLocationPermissionChannel.setMessageHandler(nil)
-    }
-  }
-}
-/// API for Flutter to start/stop the phone's built-in pedometer
-/// (CMPedometer on iOS, TYPE_STEP_COUNTER on Android).
-///
-/// Step updates are delivered to Flutter via [PhonePedometerFlutterApi].
-///
-/// Generated protocol from Pigeon that represents a handler of messages from Flutter.
-protocol PhonePedometerHostApi {
-  /// Begin receiving live step updates from the phone's motion sensors.
-  /// Updates are delivered via [PhonePedometerFlutterApi.onStepUpdate].
-  func startPedometerUpdates(completion: @escaping (Result<Void, Error>) -> Void)
-  /// Stop live step updates and release sensor resources.
-  func stopPedometerUpdates(completion: @escaping (Result<Void, Error>) -> Void)
-  /// Checks pedometer / motion permission and requests it if not yet determined.
-  ///
-  /// On iOS this checks [CMPedometer.authorizationStatus] and triggers the
-  /// system prompt when the status is [notDetermined].
-  /// On Android (API 29+) this checks [ACTIVITY_RECOGNITION]; on older APIs
-  /// it always returns [granted].
-  func requestPermission(completion: @escaping (Result<PedometerPermissionStatus, Error>) -> Void)
-}
-
-/// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
-class PhonePedometerHostApiSetup {
-  static var codec: FlutterStandardMessageCodec { MessagesPigeonCodec.shared }
-  /// Sets up an instance of `PhonePedometerHostApi` to handle messages through the `binaryMessenger`.
-  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: PhonePedometerHostApi?, messageChannelSuffix: String = "") {
-    let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-    /// Begin receiving live step updates from the phone's motion sensors.
-    /// Updates are delivered via [PhonePedometerFlutterApi.onStepUpdate].
-    let startPedometerUpdatesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.PhonePedometerHostApi.startPedometerUpdates\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      startPedometerUpdatesChannel.setMessageHandler { _, reply in
-        api.startPedometerUpdates { result in
-          switch result {
-          case .success:
-            reply(wrapResult(nil))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      startPedometerUpdatesChannel.setMessageHandler(nil)
-    }
-    /// Stop live step updates and release sensor resources.
-    let stopPedometerUpdatesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.PhonePedometerHostApi.stopPedometerUpdates\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      stopPedometerUpdatesChannel.setMessageHandler { _, reply in
-        api.stopPedometerUpdates { result in
-          switch result {
-          case .success:
-            reply(wrapResult(nil))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      stopPedometerUpdatesChannel.setMessageHandler(nil)
-    }
-    /// Checks pedometer / motion permission and requests it if not yet determined.
-    ///
-    /// On iOS this checks [CMPedometer.authorizationStatus] and triggers the
-    /// system prompt when the status is [notDetermined].
-    /// On Android (API 29+) this checks [ACTIVITY_RECOGNITION]; on older APIs
-    /// it always returns [granted].
-    let requestPermissionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.PhonePedometerHostApi.requestPermission\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      requestPermissionChannel.setMessageHandler { _, reply in
-        api.requestPermission { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      requestPermissionChannel.setMessageHandler(nil)
-    }
-  }
-}
-/// Callback API from native to Flutter for phone pedometer data.
-///
-/// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
-protocol PhonePedometerFlutterApiProtocol {
-  /// Called periodically with cumulative step data since [startPedometerUpdates].
-  ///
-  /// [totalSteps] - Cumulative step count since pedometer started
-  /// [cadenceSpm] - Current cadence in steps per minute (0 if unavailable)
-  /// [distanceMeters] - Estimated distance in meters (null if unavailable)
-  func onStepUpdate(totalSteps totalStepsArg: Int64, cadenceSpm cadenceSpmArg: Int64, distanceMeters distanceMetersArg: Double?, completion: @escaping (Result<Void, PigeonError>) -> Void)
-}
-class PhonePedometerFlutterApi: PhonePedometerFlutterApiProtocol {
-  private let binaryMessenger: FlutterBinaryMessenger
-  private let messageChannelSuffix: String
-  init(binaryMessenger: FlutterBinaryMessenger, messageChannelSuffix: String = "") {
-    self.binaryMessenger = binaryMessenger
-    self.messageChannelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-  }
-  var codec: MessagesPigeonCodec {
-    return MessagesPigeonCodec.shared
-  }
-  /// Called periodically with cumulative step data since [startPedometerUpdates].
-  ///
-  /// [totalSteps] - Cumulative step count since pedometer started
-  /// [cadenceSpm] - Current cadence in steps per minute (0 if unavailable)
-  /// [distanceMeters] - Estimated distance in meters (null if unavailable)
-  func onStepUpdate(totalSteps totalStepsArg: Int64, cadenceSpm cadenceSpmArg: Int64, distanceMeters distanceMetersArg: Double?, completion: @escaping (Result<Void, PigeonError>) -> Void) {
-    let channelName: String = "dev.flutter.pigeon.rolla_sdk.PhonePedometerFlutterApi.onStepUpdate\(messageChannelSuffix)"
-    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
-    channel.sendMessage([totalStepsArg, cadenceSpmArg, distanceMetersArg] as [Any?]) { response in
-      guard let listResponse = response as? [Any?] else {
-        completion(.failure(createConnectionError(withChannelName: channelName)))
-        return
-      }
-      if listResponse.count > 1 {
-        let code: String = listResponse[0] as! String
-        let message: String? = nilOrValue(listResponse[1])
-        let details: String? = nilOrValue(listResponse[2])
-        completion(.failure(PigeonError(code: code, message: message, details: details)))
-      } else {
-        completion(.success(()))
-      }
     }
   }
 }
