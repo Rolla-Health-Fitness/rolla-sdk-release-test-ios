@@ -69,7 +69,13 @@ extension RollaBandHeartRateDataParser {
         }
         
         let heartRate = Int(entryBytes[9])
-        
+
+        // 0xFF is the firmware "end of activity / no data" sentinel — never a real BPM.
+        // Skip the entry rather than emit a contaminated sample (QA-207).
+        guard heartRate != 255 else {
+            return .filtered(dataNumber: Int(dataNumber), baseTimestamp: baseTimestamp)
+        }
+
         // just for debugging
         let date = Date(timeIntervalSince1970: TimeInterval(baseTimestamp / 1000))
         let formatter = DateFormatter()

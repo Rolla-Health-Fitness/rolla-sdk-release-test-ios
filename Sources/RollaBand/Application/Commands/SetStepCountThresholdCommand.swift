@@ -75,7 +75,11 @@ public struct SetStepCountThresholdCommand: RollaBandRequestCommand {
     private func buildCommand() -> [UInt8] {
         var command = Array(repeating: UInt8(0), count: 16)
         command[0] = RollaBandCommand.setStepCountThreshold.rawValue
-        command[5] = 0x81
+        // JStyle 2251 API spec line 165: byte[5] (EE) = "Auto Exercise Heart Rate
+        // Enable Flag, 0x81: enable. 0x80: off". Keep this disabled — when enabled,
+        // the band's firmware autonomously ends activities after low motion, which
+        // emits 0x18 0xFF and stalls the HR stream mid-workout. See QA-207.
+        command[5] = 0x80
         command[6] = thresholdType.rawValue
         command.withChecksum()
         return command

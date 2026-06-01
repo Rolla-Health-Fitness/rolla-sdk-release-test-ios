@@ -14,19 +14,49 @@
 
 ### Both platforms
 
+- **[feature] Activity History page.** Added a dedicated Activity History screen that displays all past workouts in a monthly calendar view with summary stats and shareable card previews.
+
+- **[feature] Custom Rolla Analytics for SDK usage tracking.** Added a new `analytics` module that captures basic in-app usage events and reports them to the Rolla backend. Events are queued locally and delivered reliably across offline periods.
+
 - **[feature] Added `disabledModules` to `RollaSDKConfig` / `RollaConfiguration`.** Pass a set of `RollaDisabledModule` values to hide a module's entire UI. `weight` and `bloodPressure` are the first two modules supported for disabling; see `RollaDisabledModule` for the current list.
 
-- **[feature] Manual activity logging.** Added a new `manualActivity` module that lets users log a workout after the fact. Pick an activity type, set duration and intensity, and the SDK estimates calories — using available heart-rate samples for the window when present, or a metabolic-equivalents fallback otherwise. Enable it by including `RollaModuleType.manualActivity` in your `RollaConfiguration`'s modules list.
+- **[feature] Manual activity logging.** Added a new `manualActivity` module that lets users log a workout after the fact. Pick an activity type, set duration and intensity, and the SDK estimates calories — using available heart-rate samples for the window when present, or a metabolic-equivalents fallback otherwise.
+
+- **[feature] New activities: Spa and Calisthenics.** Added a `Spa` category (Sauna, Steam Room, Cold Plunge, Jacuzzi) that is available only from the manual activity logger — these entries do not appear in the live-tracking start list. `Calisthenics` was added under Strength and can be both live-tracked and logged manually.
 
 - **[feature] Smartphone-only workout tracking.** Workouts can now be started and tracked without a paired wearable, using the phone's pedometer and motion sensors. The activity session transparently falls back to phone sensors when no wearable is connected and merges streams when one is. New permissions are required on Android — see below.
 
 - **[breaking] Removed the previously undocumented `enabledModules` parameter from `RollaConfiguration`.** Replaced by `disabledModules`. Partners weren't using the old parameter, but anything that referenced it must switch to the new API.
 
+- **[improvement] Redesigned Insights experience.** Insights section has been moved off the SDK's Home page into its own dedicated **Insights tab** in the SDK's bottom navigation, visible only to partners using the bottom navigation bar. The tab shows a daily scrollable feed with filters, full article views (embedded charts, maps, route previews, highlight tiles), and ratings. Partners that don't use the SDK's bottom navigation will no longer see the Insights section.
+
+- **[improvement] Redesigned the bottom navigation bar.** The SDK's bottom navigation has been redesigned from Material's default bottom bar into a floating pill with a blurred backdrop, an animated sliding indicator behind the active tab, and a separated circular FAB for starting workouts. Three primary tabs (Home, Insights, Profile) replace the previous layout. Partners that aren't using the SDK's bottom navigation will only see the positional change of the Plus button for starting activities, from bottom centre to bottom right.
+
 - **[improvement] FAB quick-actions overlay redesigned.** The home FAB now opens a quick-actions sheet with entries for starting a live workout and logging a manual activity. The overlay replaces the previous quick-actions header behavior on the Home tab.
 
 - **[improvement] Active calories model updated to the Compendium of Physical Activities.** Walking, running, and cycling kcal output now uses a speed-based MET table instead of fixed or curve-fitted values. The same workout will report different calorie totals than prior SDK versions — typically higher for walking, comparable for running and cycling.
 
-- **[fix] Fixed incorrect Active Points abbreviation translations.** Active Points values now use the `AP`/`AB` abbreviation instead of the translated "points" word, which had wrong singular/plural forms in Croatian and Bosnian.
+- **[fix] Fixed incorrect Active Points abbreviation translations.** Active Points values now use the `AP`/`AB` abbreviation instead of a translated word, fixing incorrect plural forms in some locales.
+
+- **[fix] Apple Health and Health Connect now sync data when connected as a secondary source.** Previously, when a user's primary source was the band (or another service), workouts, weight, and blood pressure from a secondary Apple Health / Health Connect connection stopped syncing entirely. These data types are now uploaded automatically on each Home resume, while heart rate, HRV, steps, and sleep remain owned by the primary source.
+
+- **[feature] Added a Privacy screen to Account Settings.** The screen fetches partner-specific privacy notice markdown from the backend and renders it with placeholders already resolved.
+
+- **[fix] Restored the original Terms of Use and Privacy Policy links.**
+
+- **[improvement] Removed unused video and image assets** that were accidentally leftover from our Rolla white-label app. This significantly reduces the SDK payload size by approximately 73 MB.
+
+- **[fix] Active workout distance no longer resets to 0 after the app is closed or loses connection.** If a workout is interrupted (for example by closing the app or switching to airplane mode), the previously tracked distance is now restored on resume so it continues from where it left off instead of starting over.
+
+- **[fix] Workout pause segments no longer leak to workout data.** Fixed a bug where samples recorded during a pause leaked into the workout samples.
+
+- **[fix] Fixed Rolla band activities being auto-ended mid-workout during low-motion sessions.** Disabled a band firmware flag that was being toggled on unintentionally, which let the band terminate user-started activities after long stationary stretches.
+
+- **[fix] Remaining connected data source is now promoted to primary when the Rolla Band is unpaired.** Previously, if the band was the primary source and another service (e.g. Garmin or Apple Health) was connected as secondary, unpairing the band left that service as secondary until the app was restarted. The remaining connected service is now switched to primary right away, with no restart required.
+
+- **[improvement] Reworked the in-app FAQ content.** The Help & Support FAQ screen is now organised into clear sections — Understanding Your Health Metrics, Wearable Connection & Syncing, Why Can't I See a Specific Metric?, and Wearable Compatibility. Answers now cover all supported wearables (Rolla Band, Garmin, and Apple Watch / Apple Health) with device-specific guidance for connecting, syncing, and missing metrics, rather than focusing on the Rolla Band alone. Updated across all supported languages.
+
+- **[fix] Home screen no longer flickers or briefly shows 0 when refreshing.** When pulling down to refresh the Home screen, the Readiness, Activity, Health Score, and metrics cards used to blink and momentarily display a 0 before the new numbers arrived. They now stay on screen showing your current values and update smoothly in place once the latest data is ready.
 
 ### Android
 

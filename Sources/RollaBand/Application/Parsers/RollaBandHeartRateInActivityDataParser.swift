@@ -20,7 +20,9 @@ public struct RollaBandHeartRateInActivityDataParser: HeartRateDataParser {
         
         let heartRate = Int(bytes[1])
 
-        guard heartRate > 0 && heartRate <= 255 else {
+        // 0xFF is the firmware "end of activity / no data" sentinel — never a real BPM.
+        // Drop it here so the Flutter layer never sees it (QA-207).
+        guard heartRate > 0 && heartRate < 255 else {
             return nil
         }
 

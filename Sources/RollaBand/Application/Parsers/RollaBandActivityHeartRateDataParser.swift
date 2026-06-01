@@ -77,7 +77,8 @@ extension RollaBandActivityHeartRateDataParser {
         for (minuteIndex, heartRateValue) in heartRateValues.enumerated() {
             let minuteTimestampMillis = baseTimestamp + (minuteIndex * 60 * 1000)
             
-            guard heartRateValue > 0, minuteTimestampMillis > lastSyncEntryTimestamp else {
+            // Drop 0xFF (255): firmware end-of-activity sentinel, not a real BPM (QA-207).
+            guard heartRateValue > 0, heartRateValue != 255, minuteTimestampMillis > lastSyncEntryTimestamp else {
                 continue
             }
 
