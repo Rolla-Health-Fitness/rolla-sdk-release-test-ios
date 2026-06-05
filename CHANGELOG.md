@@ -44,9 +44,11 @@
 
 - **[fix] Restored the original Terms of Use and Privacy Policy links.**
 
-- **[improvement] Removed unused video and image assets** that were accidentally leftover from our Rolla white-label app. This significantly reduces the SDK payload size by approximately 73 MB.
+- **[improvement] Reduced SDK payload size by approximately 73 MB by dropping unused bundled media assets.**
 
 - **[fix] Active workout distance no longer resets to 0 after the app is closed or loses connection.** If a workout is interrupted (for example by closing the app or switching to airplane mode), the previously tracked distance is now restored on resume so it continues from where it left off instead of starting over.
+
+- **[fix] Fixed incorrect activity session being restored after an interrupted workout.** Recovery now targets your most recent session and clears out stale, abandoned ones.
 
 - **[fix] Workout pause segments no longer leak to workout data.** Fixed a bug where samples recorded during a pause leaked into the workout samples.
 
@@ -57,6 +59,12 @@
 - **[improvement] Reworked the in-app FAQ content.** The Help & Support FAQ screen is now organised into clear sections — Understanding Your Health Metrics, Wearable Connection & Syncing, Why Can't I See a Specific Metric?, and Wearable Compatibility. Answers now cover all supported wearables (Rolla Band, Garmin, and Apple Watch / Apple Health) with device-specific guidance for connecting, syncing, and missing metrics, rather than focusing on the Rolla Band alone. Updated across all supported languages.
 
 - **[fix] Home screen no longer flickers or briefly shows 0 when refreshing.** When pulling down to refresh the Home screen, the Readiness, Activity, Health Score, and metrics cards used to blink and momentarily display a 0 before the new numbers arrived. They now stay on screen showing your current values and update smoothly in place once the latest data is ready.
+
+- **[fix] Stale-data warning now names the correct data source.** The dialog referenced Garmin even when Oura was the connected source; it now names the actual primary source.
+
+- **[feature] Unread Insights badge & filtering.** The Insights tab now displays an unread badge indicating new articles since the user's last visit, and adds filter controls to narrow the feed by read/unread status.
+
+- **[fix] Account details screen improvements during sign-up.** The name field now validates on blur, country/city selection handles offline gracefully, and the screen's text field and searchable dropdown are now exported for reuse in the white-label app.
 
 ### Android
 
