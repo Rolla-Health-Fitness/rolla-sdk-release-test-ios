@@ -70,6 +70,8 @@
 
 - **[improvement] Permissions are now requested at a clearer point during setup.** The required permissions are shown as their own step after sign-up and consent and before connecting a wearable or data source, so it's clear why they're needed.
 
+- **[fix] The Skip button on the permissions screen now works during sign-up.** When only some permissions were granted, the Skip button could be disabled and block users from continuing; it now lets them proceed.
+
 ### Android
 
 - **[breaking] `ACTIVITY_RECOGNITION` permission now required.** The bundled SDK manifest declares `android.permission.ACTIVITY_RECOGNITION` (API 29+) to read the phone's step counter for smartphone-only workouts. Ensure your host app does not strip it via `tools:node="remove"` and that your Play Console listing covers the new permission rationale.
