@@ -20,8 +20,6 @@
 
 - **[feature] Added `disabledModules` to `RollaSDKConfig` / `RollaConfiguration`.** Pass a set of `RollaDisabledModule` values to hide a module's entire UI. `weight` and `bloodPressure` are the first two modules supported for disabling; see `RollaDisabledModule` for the current list.
 
-- **[feature] Added `removeRollaBandReferences` to `RollaSDKConfig` / `RollaConfiguration`.** When enabled, the app uses generic "fitness device" wording in place of Rolla Band–specific copy throughout the SDK.
-
 - **[feature] Manual activity logging.** Added a new `manualActivity` module that lets users log a workout after the fact. Pick an activity type, set duration and intensity, and the SDK estimates calories — using available heart-rate samples for the window when present, or a metabolic-equivalents fallback otherwise.
 
 - **[feature] New activities: Spa and Calisthenics.** Added a `Spa` category (Sauna, Steam Room, Cold Plunge, Jacuzzi) that is available only from the manual activity logger — these entries do not appear in the live-tracking start list. `Calisthenics` was added under Strength and can be both live-tracked and logged manually.
@@ -68,9 +66,7 @@
 
 - **[fix] Account details screen improvements during sign-up.** The name field now validates on blur, country/city selection handles offline gracefully, and the screen's text field and searchable dropdown are now exported for reuse in the white-label app.
 
-- **[improvement] Permissions are now requested at a clearer point during setup.** The required permissions are shown as their own step after sign-up and consent and before connecting a wearable or data source, so it's clear why they're needed.
-
-- **[fix] The Skip button on the permissions screen now works during sign-up.** When only some permissions were granted, the Skip button could be disabled and block users from continuing; it now lets them proceed.
+- **[fix] Indoor workouts no longer wait 30–45s on "Waiting for GPS…" before showing you on the map.** The map now appears almost immediately using a cached position while precise GPS warms up, without affecting recorded route accuracy.
 
 ### Android
 

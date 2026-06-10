@@ -47,7 +47,18 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     private static let pendingExitSpeedMps: Double = 0.5
     private static let pendingExitSpeedAccuracyM: Double = 20.0
     private static let pendingExitSpeedConsecutive: Int = 2
-    private static let warmUpMaxAccuracy: Double = 15.0
+    // Warm-up shares the activity's recorded-track accuracy floor
+    // (config.maxAccuracy) instead of a stricter hardcoded 15 m, so indoor
+    // first-fixes aren't held to a precision the recorded track never requires.
+    // Set from config in updateConfiguration(for:).
+    private var warmUpMaxAccuracy: Double = 15.0
+
+    // Caps the otherwise-unbounded post-calibration warm-up. The clock starts
+    // only when isPostCalibrationWarmUp becomes true. On timeout we accept the
+    // best-so-far fix so the recorded first point can't hang for tens of
+    // seconds indoors waiting for a high-accuracy fix.
+    private var warmUpStartTime: TimeInterval?
+    private static let warmUpTimeoutSec: TimeInterval = 3.0
 
     // Session tallies; emitted as pipeline-summary at stopSession.
     private var sessionStart: Date?
@@ -60,6 +71,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     private var sessionRebootstraps: Int = 0
     private var sessionRebootstrapSuppressed: Int = 0
     private var sessionWarmupReanchors: Int = 0
+    private var sessionWarmupTimeoutEmits: Int = 0
     private var sessionWarmupTeleportRejections: Int = 0
 
     // Anchors for the per-fix `timer` event.
@@ -87,6 +99,8 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     func updateConfiguration(for activityType: LocationActivityType) async {
         self.activityType = activityType
         self.config = LocationTrackingConfig.forActivity(activityType)
+        // Warm-up reuses the activity's recorded-track accuracy floor.
+        self.warmUpMaxAccuracy = config.maxAccuracy
         self.stationaryDetector = StationaryDetector(
             enterSpeedThreshold: config.stationarySpeedEntry,
             requiredSlowReadings: config.stationaryConsecutiveRequired,
@@ -233,6 +247,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         lastAcceptedTimestamp = 0
         lastValidGpsWallTime = nil
         isPostCalibrationWarmUp = false
+        warmUpStartTime = nil
         setConsecutiveRejections(0, gate: "reset")
         stationaryDetector.reset()
         pendingExitAt = nil
@@ -275,9 +290,38 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
 
         // Warm-up: replace centroid with first decent-accuracy fix, gated by
         // implied speed so a CL position-solution switch can't look like re-anchor.
-        if isPostCalibrationWarmUp && locationData.horizontalAccuracy <= Self.warmUpMaxAccuracy {
-            handleWarmupReanchor(locationData, last: last)
-            return nil
+        // warmUpMaxAccuracy is config.maxAccuracy (set per-activity).
+        if isPostCalibrationWarmUp {
+            if locationData.horizontalAccuracy <= warmUpMaxAccuracy {
+                handleWarmupReanchor(locationData, last: last)
+                return nil
+            }
+            // Cap the unbounded warm-up wait. Once we've been warming up
+            // longer than the timeout, accept the best-so-far fix as the new
+            // anchor and fall through to the normal pipeline so the recorded
+            // first point can't hang indoors. The fix already passed
+            // isValidLocation (≤ maxAccuracy), and re-anchoring lastAccepted to
+            // it keeps Gate A's implied-speed baseline honest.
+            let start = warmUpStartTime ?? locationData.timestamp.timeIntervalSince1970
+            if locationData.timestamp.timeIntervalSince1970 - start > Self.warmUpTimeoutSec {
+                isPostCalibrationWarmUp = false
+                warmUpStartTime = nil
+                sessionWarmupTimeoutEmits += 1
+                setLastAccepted(locationData, reason: "warmup-timeout")
+                lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+                logger.info("Warm-up timed out — accepting \(String(format: "%.1f", locationData.horizontalAccuracy))m fix as anchor", category: .location)
+                LocationDebugCapture.shared.logState(transition: "warm-up-timeout", details: [
+                    "acc": locationData.horizontalAccuracy
+                ])
+                // fall through to gates/emit below
+            } else {
+                LocationDebugCapture.shared.logGate(
+                    gate: "warmup", passed: false, reason: "warmup_awaiting_accuracy",
+                    inputs: ["acc": locationData.horizontalAccuracy, "limitM": warmUpMaxAccuracy],
+                    fixTs: locationData.timestamp
+                )
+                return nil
+            }
         }
 
         // Detector runs FIRST so pending-exit eval, arming, suppression all
@@ -365,6 +409,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         setLastAccepted(locationData, reason: "warmup-reanchor")
         lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
         isPostCalibrationWarmUp = false
+        warmUpStartTime = nil
         logger.info(
             "Warm-up re-anchor: replaced centroid with \(String(format: "%.1f", locationData.horizontalAccuracy))m-accuracy fix",
             category: .location
@@ -408,6 +453,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             consecutiveWalkingFixes = 0
             setStationaryEntry(nil, reason: "timeout-restore")
             isPostCalibrationWarmUp = true
+            warmUpStartTime = locationData.timestamp.timeIntervalSince1970 // arm warm-up timeout
             LocationDebugCapture.shared.logState(transition: "pending-exit-timeout", details: ["ageSec": age])
             lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
             suppress(locationData, reason: "pending_exit_timeout", level: .info, msg: "Pending exit timeout — restoring stop-entry anchor")
@@ -477,6 +523,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             setSecondLastEmitted(nil, reason: tag)
             setConsecutiveRejections(0, gate: "reset")
             isPostCalibrationWarmUp = true
+            warmUpStartTime = locationData.timestamp.timeIntervalSince1970 // arm warm-up timeout
             pendingExitAt = nil
             pendingExitFromLocation = nil
             lastPendingFix = nil
@@ -655,6 +702,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     private func seedInitialAnchor(_ locationData: LocationData) {
         setLastAccepted(locationData, reason: "calibration-seed")
         isPostCalibrationWarmUp = true
+        warmUpStartTime = locationData.timestamp.timeIntervalSince1970 // arm warm-up timeout
         lastValidGpsWallTime = Date()
     }
 
@@ -793,6 +841,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         sessionRebootstraps = 0
         sessionRebootstrapSuppressed = 0
         sessionWarmupReanchors = 0
+        sessionWarmupTimeoutEmits = 0
         sessionWarmupTeleportRejections = 0
         lastStationaryEventAt = nil
         lastEmitAt = nil
@@ -816,7 +865,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             "pendingExitSpeedMps": Self.pendingExitSpeedMps,
             "pendingExitSpeedAccuracyM": Self.pendingExitSpeedAccuracyM,
             "pendingExitSpeedConsecutive": Self.pendingExitSpeedConsecutive,
-            "warmupMaxAccuracy": Self.warmUpMaxAccuracy
+            "warmupMaxAccuracy": warmUpMaxAccuracy
         ]
     }
 
@@ -830,6 +879,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             "rebootstraps": sessionRebootstraps,
             "rebootstrapSuppressed": sessionRebootstrapSuppressed,
             "warmupReanchors": sessionWarmupReanchors,
+            "warmupTimeoutEmits": sessionWarmupTimeoutEmits,
             "warmupTeleportRejections": sessionWarmupTeleportRejections
         ]
     }

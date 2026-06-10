@@ -100,8 +100,8 @@ public final class DefaultConnectRollaBandUseCase: ConnectRollaBandUseCase {
             }
         }
         
-        // Similarly skip the "outside activity" step threshold when restore is pending.
-        if !isRestorePending {
+        // Skip the "outside activity" step threshold when in activity or restore is pending.
+        if !isInActivity && !isRestorePending {
             try? await rollaBandCommandExecutor.execute(
                 SetStepCountThresholdCommand(
                     deviceUUID: finalDeviceUUID,
