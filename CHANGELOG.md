@@ -14,11 +14,15 @@
 
 ### Both platforms
 
+- **[improvement] Updated Stale Data Notification Appearance to be less intrusive.** On app open, stale data now shows a brief toast instead of a full-screen dialog. Tapping the toast reveals the full details. Manual refresh still shows the full dialog. The refresh icon also turns orange when data is stale.
+
 - **[feature] Activity History page.** Added a dedicated Activity History screen that displays all past workouts in a monthly calendar view with summary stats and shareable card previews.
 
 - **[feature] Custom Rolla Analytics for SDK usage tracking.** Added a new `analytics` module that captures basic in-app usage events and reports them to the Rolla backend. Events are queued locally and delivered reliably across offline periods.
 
-- **[feature] Added `disabledModules` to `RollaSDKConfig` / `RollaConfiguration`.** Pass a set of `RollaDisabledModule` values to hide a module's entire UI. `weight` and `bloodPressure` are the first two modules supported for disabling; see `RollaDisabledModule` for the current list.
+- **[feature] Added `disabledModules` to `RollaConfiguration`.** Pass a set of `RollaDisabledModule` values to hide a module's entire UI. `weight` and `bloodPressure` are the first two modules supported for disabling; see `RollaDisabledModule` for the current list.
+
+- **[feature] Added `removeRollaBandReferences` flag to `RollaConfiguration`, default value `true`.** SDK partner apps now default to generic "fitness device" wording across the SDK UI, with Rolla Band references shown only when the flag is set to `false`.
 
 - **[feature] Manual activity logging.** Added a new `manualActivity` module that lets users log a workout after the fact. Pick an activity type, set duration and intensity, and the SDK estimates calories — using available heart-rate samples for the window when present, or a metabolic-equivalents fallback otherwise.
 

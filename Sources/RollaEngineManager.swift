@@ -107,7 +107,8 @@ final class RollaEngineManager {
             "isModal": isModal,
             "showBackButton": showBackButton,
             "hideBottomNavigation": true,
-            "showSettingsButton": config.showSettingsButton
+            "showSettingsButton": config.showSettingsButton,
+            "removeRollaBandReferences": config.removeRollaBandReferences
         ]
 
         if let userId = config.userId {
