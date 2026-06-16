@@ -85,6 +85,17 @@ final class AppDependencies {
         PhonePedometerHandler(flutterApi: phonePedometerFlutterApi)
     }()
 
+    /// Handles Apple Health (HealthKit) queries.
+    ///
+    /// Formerly the standalone `apple_health` Flutter plugin, which registered
+    /// itself automatically. Now that its sources are vendored into the SDK it
+    /// is no longer an auto-registered plugin, so the SDK owns its Pigeon
+    /// registration here (see `setupFlutterBindings`). Held as a stored
+    /// property so the instance survives for the engine's lifetime.
+    lazy var appleHealthPlugin: AppleHealthPlugin = {
+        AppleHealthPlugin()
+    }()
+
     /// Handles iOS Live Activities for workout tracking (iOS 16.1+)
     /// This is registered automatically - host apps don't need any AppCoordinator code
     /// Type is Any? to avoid availability checks at compile time (deployment target is iOS 14.0)
@@ -193,6 +204,13 @@ final class AppDependencies {
         PhonePedometerHostApiSetup.setUp(
             binaryMessenger: binaryMessenger,
             api: phonePedometerHandler
+        )
+
+        // Apple Health (HealthKit) handler. Formerly auto-registered by the
+        // standalone apple_health plugin; now vendored, so the SDK registers it.
+        AppleHealthHostApiSetup.setUp(
+            binaryMessenger: binaryMessenger,
+            api: appleHealthPlugin
         )
 
         // Live Activities handler - automatically handles workout Live Activities (iOS 16.1+)
