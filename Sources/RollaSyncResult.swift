@@ -70,7 +70,10 @@ public struct RollaSyncResult {
     public let hasNewData: Bool
     /// Which source the sync ran against.
     public let source: RollaSyncSource
-    /// The server-reported last-sync time for the active source, if known.
+    /// When this sync completed on the device. Present only on a successful
+    /// sync (nil for `.skipped` / `.failure`). A client-side completion time,
+    /// consistent across every source — suitable for a "Last synced at …"
+    /// label; not a backend-confirmed write time.
     public let lastSyncAt: Date?
     /// Why the sync did nothing. Non-nil only when ``outcome`` is ``RollaSyncOutcome/skipped``.
     public let skipReason: RollaSyncSkipReason?
