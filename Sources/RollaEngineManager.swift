@@ -216,6 +216,28 @@ final class RollaEngineManager {
         }
     }
 
+    /// Run a headless sync over the method channel.
+    ///
+    /// Resolves to a typed ``RollaSyncResult`` for every outcome (success /
+    /// skipped / failure are all encoded in the result); `.failure` is reserved
+    /// for transport problems (e.g. engine not started).
+    func syncNow(completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void) {
+        guard let channel = methodChannel else {
+            completion(.failure(.engineFailedToStart))
+            return
+        }
+
+        channel.invokeMethod("syncNow", arguments: nil) { response in
+            DispatchQueue.main.async {
+                if let error = response as? FlutterError {
+                    completion(.failure(.flutterError(code: error.code, message: error.message ?? "Sync failed")))
+                } else {
+                    completion(.success(RollaSyncResult.from(response)))
+                }
+            }
+        }
+    }
+
     func clearSession(completion: @escaping (Result<Void, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))

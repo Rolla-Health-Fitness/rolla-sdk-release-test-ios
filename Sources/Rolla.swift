@@ -156,6 +156,51 @@ public final class Rolla {
         }
     }
 
+    /// Run a full sync of the connected source's health data, WITHOUT showing
+    /// any UI.
+    ///
+    /// This connects the user's primary data source (the Rolla band over BLE,
+    /// or Apple Health) and uploads anything new — headlessly. The engine is
+    /// warmed up automatically if needed, so this works even before
+    /// ``show(from:)`` has ever been called.
+    ///
+    /// The result is always a typed ``RollaSyncResult``: a sync that does
+    /// nothing for an expected reason (no band connected, a sync already
+    /// running, a server-side source, offline) resolves as `.success` with a
+    /// `.skipped` outcome — never as a thrown error. `.failure` is reserved for
+    /// transport problems (e.g. the engine could not start).
+    ///
+    /// The same result is also delivered to
+    /// ``RollaDelegate/rollaDidCompleteSync(_:result:)`` when a sync runs to a
+    /// terminal outcome (i.e. the channel round-trip succeeded).
+    ///
+    /// - Parameter completion: Delivers the sync result on the main thread.
+    public func sync(completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void) {
+        DispatchQueue.main.async {
+            // Headless sync: don't wire presentation callbacks (see warmUpEngine).
+            //
+            // Capture `self` STRONGLY through the configure round-trip — same
+            // reasoning as getBatteryLevel(completion:). A `[weak self]` here
+            // would silently drop `completion` (and the delegate callback) if
+            // the caller holds the Rolla instance only for the duration of this
+            // call, hanging an `await` forever and defeating the
+            // always-returns contract.
+            self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
+                switch configureResult {
+                case .success:
+                    self.engineManager.syncNow { result in
+                        if case .success(let syncResult) = result {
+                            self.delegate?.rollaDidCompleteSync(self, result: syncResult)
+                        }
+                        completion(result)
+                    }
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     /// Destroy the Flutter engine and free its resources from memory.
     ///
     /// Call this when the host app wants to reclaim the memory used by the
