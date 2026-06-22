@@ -12,7 +12,15 @@
 
 ## 0.1.12 [Draft]
 
-> **No documented changes yet.** When adding a new changelog entry, follow the pattern from previous versions in this file and see [`docs/changelog/CHANGELOG_WORKFLOW.md`](docs/changelog/CHANGELOG_WORKFLOW.md). Delete this note when you add the first bullet.
+### Both platforms
+
+- **[feature] Public band battery read.** Host apps can now read the connected Rolla band's live battery level. The result is always a well-typed value: a live percentage when a Rolla band is connected, or a documented "unavailable" reason (no band paired, disconnected, timed out, not a Rolla band, or Bluetooth off) — it never throws and never reports a stale value as live.
+- **[feature] Added Spanish (Español) language support.** All SDK screens, labels, and messages are now localized in Spanish, bringing the total set of supported languages to Arabic, Bosnian, Croatian, English, German, and Spanish.
+- **[fix] Invalid email addresses are now caught before the request is sent.** The password reset and change-email forms now show an inline message and block submission until a valid email is entered.
+
+### iOS
+
+- **[improvement] Headless engine warm-up.** New `Rolla.warmUpEngine()` starts and configures the SDK without showing any UI, so the first `show()` is instant and host-facing reads (such as the band battery level) work before the SDK has ever been presented.
 
 ---
 

@@ -91,13 +91,79 @@ public final class Rolla {
         }
     }
 
+    /// Warm up the Flutter engine and configure the SDK ahead of time, WITHOUT
+    /// presenting any UI.
+    ///
+    /// Call this when you want to remove the engine start-up cost from the first
+    /// ``show(from:)`` (e.g. warm up right after login so opening the SDK is
+    /// instant), or to enable headless reads such as
+    /// ``getBatteryLevel(completion:)`` before the UI has ever been shown.
+    ///
+    /// Warming up runs the Flutter engine and initializes the SDK in the
+    /// background; a subsequent ``show(from:)`` reuses the already-running engine
+    /// and goes straight to presenting. Safe to call more than once — repeat
+    /// calls for the same user are a seamless no-op (the session is preserved).
+    ///
+    /// The warmed engine holds memory for the session; reclaim it with
+    /// ``destroyEngine()`` when you no longer need the SDK.
+    ///
+    /// - Parameter completion: Called when the engine is configured and ready,
+    ///   or with an error if start-up failed.
+    public func warmUpEngine(completion: ((Result<Void, RollaError>) -> Void)? = nil) {
+        DispatchQueue.main.async {
+            // Headless: do not wire presentation callbacks (onClose/onError) here
+            // so we never hijack the callbacks of a live presentation owned by a
+            // different Rolla instance. show() wires them when it actually presents.
+            self.engineManager.ensureConfigured(with: self.configuration) { result in
+                completion?(result)
+            }
+        }
+    }
+
+    /// Read the connected Rolla band's current battery level.
+    ///
+    /// This is a **live BLE read from a Rolla band** — the user must have a Rolla
+    /// band paired and reachable to get a value. The engine is warmed up
+    /// automatically if needed (no UI is shown), so this works even before
+    /// ``show(from:)`` has ever been called.
+    ///
+    /// The result is always a typed ``RollaBatteryResult``: band-absence cases
+    /// (no band paired, disconnected, timeout, not a Rolla band, Bluetooth off)
+    /// resolve as `.success` with a non-`.available` status — never as a thrown
+    /// error and never as a stale value presented as live. `.failure` is reserved
+    /// for transport problems (e.g. the engine could not start).
+    ///
+    /// - Parameter completion: Delivers the battery result on the main thread.
+    public func getBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
+        DispatchQueue.main.async {
+            // Headless read: don't wire presentation callbacks (see warmUpEngine).
+            //
+            // Capture `self` STRONGLY through the configure round-trip. This is a
+            // one-shot terminal completion and `engineManager` (a shared singleton)
+            // never stores this Rolla instance, so there's no retain cycle — the
+            // strong capture self-releases once the closure runs. A `[weak self]`
+            // here would silently drop `completion` if the caller holds the Rolla
+            // instance only for the duration of this call (as hosts typically do),
+            // hanging an `await` forever and defeating the always-returns contract.
+            self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
+                switch configureResult {
+                case .success:
+                    self.engineManager.getBatteryLevel(completion: completion)
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     /// Destroy the Flutter engine and free its resources from memory.
     ///
     /// Call this when the host app wants to reclaim the memory used by the
     /// Flutter engine. Unlike ``dismiss()``, which keeps the engine alive for
     /// fast re-presentation, this method fully tears it down.
     ///
-    /// The next call to ``show(from:)`` will create a fresh engine automatically.
+    /// The next call to ``show(from:)`` or ``warmUpEngine(completion:)`` will
+    /// create a fresh engine automatically.
     public static func destroyEngine() {
         RollaEngineManager.shared.destroy()
     }
