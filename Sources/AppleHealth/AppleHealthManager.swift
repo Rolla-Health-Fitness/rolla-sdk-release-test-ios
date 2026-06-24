@@ -28,6 +28,39 @@ public actor AppleHealthManager {
         self.workoutRepository = workoutRepository
     }
     
+    /// Whether HealthKit would still present its authorization sheet for the
+    /// given read types — i.e. whether the app has ever requested them. Backed
+    /// by `getRequestStatusForAuthorization(toShare:read:)`. Never prompts.
+    ///
+    /// HealthKit hides granted-vs-declined for read types, so `.unnecessary`
+    /// means "already requested at least once" (not "granted") and
+    /// `.shouldRequest` means "never requested".
+    public func getReadRequestStatus(for dataTypes: [DataType]) async -> AHReadRequestStatus {
+        guard Self.isHealthDataAvailable else {
+            return .unknown
+        }
+
+        let readTypes = Set(dataTypes.flatMap { $0.hkObjectTypesForAuthorization })
+        guard !readTypes.isEmpty else {
+            return .unknown
+        }
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<AHReadRequestStatus, Never>) in
+            healthStore.getRequestStatusForAuthorization(toShare: [], read: readTypes) { status, _ in
+                switch status {
+                case .unnecessary:
+                    continuation.resume(returning: .unnecessary)
+                case .shouldRequest:
+                    continuation.resume(returning: .shouldRequest)
+                case .unknown:
+                    continuation.resume(returning: .unknown)
+                @unknown default:
+                    continuation.resume(returning: .unknown)
+                }
+            }
+        }
+    }
+
     public func requestAuthorization(for dataTypes: [DataType]) async -> AHAuthorizationStatus {
         guard Self.isHealthDataAvailable else {
             return .notAvailable

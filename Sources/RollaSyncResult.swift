@@ -46,10 +46,21 @@ public enum RollaSyncSkipReason: String {
     case alreadyInProgress
     /// The user's primary source syncs server-side (Garmin/Oura).
     case serverSideSource
-    /// The user's primary source needs a platform permission that has not been
-    /// granted (e.g. Health Connect read authorization on Android). The host
-    /// should request the permission before retrying.
-    case permissionsRequired
+    /// The user's primary source is the band, but the Bluetooth runtime
+    /// permission has not been granted. A headless sync cannot prompt, so the
+    /// host should request it before retrying. The band-battery API reports the
+    /// same missing permission as ``RollaBatteryStatus/bluetoothPermissionRequired``
+    /// (identical raw value), so a host can map it once across both APIs.
+    case bluetoothPermissionRequired
+    /// The user's primary source is Apple Health, but HealthKit read
+    /// authorization has never been requested/granted for this app. The host
+    /// should present the authorization flow before retrying. (HealthKit hides
+    /// granted-vs-declined for read types, so this is reported when the app has
+    /// never been authorized at all.)
+    case appleHealthPermissionRequired
+    /// The user's primary source is Health Connect, but read authorization has
+    /// not been granted. The host should request it before retrying.
+    case healthConnectPermissionRequired
     /// The SDK is not initialized.
     case notInitialized
     /// The device is offline.

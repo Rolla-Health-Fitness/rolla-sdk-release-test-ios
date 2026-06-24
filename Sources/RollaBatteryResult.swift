@@ -17,8 +17,14 @@ public enum RollaBatteryStatus: String {
     case timeout
     /// The connected device is not a Rolla band.
     case notRollaDevice
-    /// Bluetooth is off, unauthorized, or otherwise unavailable.
+    /// Bluetooth is powered off or otherwise unavailable. (Missing Bluetooth
+    /// permission is reported separately as ``bluetoothPermissionRequired``.)
     case bluetoothUnavailable
+    /// The Bluetooth runtime permission has not been granted. Shares its raw
+    /// value with ``RollaSyncSkipReason/bluetoothPermissionRequired`` so a host
+    /// can map "Bluetooth permission required" once across the battery and sync
+    /// APIs. The host should request the permission before retrying.
+    case bluetoothPermissionRequired
     /// An unexpected error occurred while reading.
     case unknownError
     /// The SDK returned a status this version does not recognize (forward-compat).

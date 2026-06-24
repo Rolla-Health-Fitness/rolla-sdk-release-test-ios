@@ -151,6 +151,24 @@ enum AppleHealthAuthorizationResult: Int {
   case error = 2
 }
 
+/// Whether HealthKit would present its authorization sheet for the given read
+/// types — i.e. whether the app has ever requested them. Maps
+/// `HKAuthorizationRequestStatus`. NOTE: for read types HealthKit deliberately
+/// never reports granted-vs-declined, so this distinguishes only
+/// "never requested" ([shouldRequest]) from "already requested at least once"
+/// ([unnecessary]).
+enum AppleHealthReadRequestStatus: Int {
+  /// The app has already requested authorization for these read types, so no
+  /// further request is necessary. (Does NOT imply the user granted access —
+  /// HealthKit hides read grants.)
+  case unnecessary = 0
+  /// The app has never requested authorization for these read types — the host
+  /// should present the authorization flow.
+  case shouldRequest = 1
+  /// HealthKit could not determine the status (or HealthKit is unavailable).
+  case unknown = 2
+}
+
 enum AppleHealthSleepStageType: Int {
   case awake = 0
   case light = 1
@@ -878,56 +896,62 @@ private class AppleHealthMessagesPigeonCodecReader: FlutterStandardReader {
     case 131:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return AppleHealthSleepStageType(rawValue: enumResultAsInt)
+        return AppleHealthReadRequestStatus(rawValue: enumResultAsInt)
       }
       return nil
     case 132:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return WorkoutActivityType(rawValue: enumResultAsInt)
+        return AppleHealthSleepStageType(rawValue: enumResultAsInt)
       }
       return nil
     case 133:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return LocationType(rawValue: enumResultAsInt)
+        return WorkoutActivityType(rawValue: enumResultAsInt)
       }
       return nil
     case 134:
-      return AppleHealthAuthorizationResponse.fromList(self.readValue() as! [Any?])
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return LocationType(rawValue: enumResultAsInt)
+      }
+      return nil
     case 135:
-      return HealthStatistics.fromList(self.readValue() as! [Any?])
+      return AppleHealthAuthorizationResponse.fromList(self.readValue() as! [Any?])
     case 136:
-      return HealthSample.fromList(self.readValue() as! [Any?])
+      return HealthStatistics.fromList(self.readValue() as! [Any?])
     case 137:
-      return HealthQueryRequest.fromList(self.readValue() as! [Any?])
+      return HealthSample.fromList(self.readValue() as! [Any?])
     case 138:
-      return HealthStatisticsResponse.fromList(self.readValue() as! [Any?])
+      return HealthQueryRequest.fromList(self.readValue() as! [Any?])
     case 139:
-      return HealthSamplesResponse.fromList(self.readValue() as! [Any?])
+      return HealthStatisticsResponse.fromList(self.readValue() as! [Any?])
     case 140:
-      return SleepSample.fromList(self.readValue() as! [Any?])
+      return HealthSamplesResponse.fromList(self.readValue() as! [Any?])
     case 141:
-      return SleepQueryRequest.fromList(self.readValue() as! [Any?])
+      return SleepSample.fromList(self.readValue() as! [Any?])
     case 142:
-      return SleepSamplesResponse.fromList(self.readValue() as! [Any?])
+      return SleepQueryRequest.fromList(self.readValue() as! [Any?])
     case 143:
-      return BloodPressureSample.fromList(self.readValue() as! [Any?])
+      return SleepSamplesResponse.fromList(self.readValue() as! [Any?])
     case 144:
-      return BloodPressureSamplesResponse.fromList(self.readValue() as! [Any?])
+      return BloodPressureSample.fromList(self.readValue() as! [Any?])
     case 145:
-      return TimestampedValue.fromList(self.readValue() as! [Any?])
+      return BloodPressureSamplesResponse.fromList(self.readValue() as! [Any?])
     case 146:
-      return RoutePoint.fromList(self.readValue() as! [Any?])
+      return TimestampedValue.fromList(self.readValue() as! [Any?])
     case 147:
-      return HeartRateSummary.fromList(self.readValue() as! [Any?])
+      return RoutePoint.fromList(self.readValue() as! [Any?])
     case 148:
-      return WorkoutActivity.fromList(self.readValue() as! [Any?])
+      return HeartRateSummary.fromList(self.readValue() as! [Any?])
     case 149:
-      return WorkoutRecord.fromList(self.readValue() as! [Any?])
+      return WorkoutActivity.fromList(self.readValue() as! [Any?])
     case 150:
-      return WorkoutQueryRequest.fromList(self.readValue() as! [Any?])
+      return WorkoutRecord.fromList(self.readValue() as! [Any?])
     case 151:
+      return WorkoutQueryRequest.fromList(self.readValue() as! [Any?])
+    case 152:
       return WorkoutQueryResponse.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -943,68 +967,71 @@ private class AppleHealthMessagesPigeonCodecWriter: FlutterStandardWriter {
     } else if let value = value as? AppleHealthAuthorizationResult {
       super.writeByte(130)
       super.writeValue(value.rawValue)
-    } else if let value = value as? AppleHealthSleepStageType {
+    } else if let value = value as? AppleHealthReadRequestStatus {
       super.writeByte(131)
       super.writeValue(value.rawValue)
-    } else if let value = value as? WorkoutActivityType {
+    } else if let value = value as? AppleHealthSleepStageType {
       super.writeByte(132)
       super.writeValue(value.rawValue)
-    } else if let value = value as? LocationType {
+    } else if let value = value as? WorkoutActivityType {
       super.writeByte(133)
       super.writeValue(value.rawValue)
-    } else if let value = value as? AppleHealthAuthorizationResponse {
+    } else if let value = value as? LocationType {
       super.writeByte(134)
-      super.writeValue(value.toList())
-    } else if let value = value as? HealthStatistics {
+      super.writeValue(value.rawValue)
+    } else if let value = value as? AppleHealthAuthorizationResponse {
       super.writeByte(135)
       super.writeValue(value.toList())
-    } else if let value = value as? HealthSample {
+    } else if let value = value as? HealthStatistics {
       super.writeByte(136)
       super.writeValue(value.toList())
-    } else if let value = value as? HealthQueryRequest {
+    } else if let value = value as? HealthSample {
       super.writeByte(137)
       super.writeValue(value.toList())
-    } else if let value = value as? HealthStatisticsResponse {
+    } else if let value = value as? HealthQueryRequest {
       super.writeByte(138)
       super.writeValue(value.toList())
-    } else if let value = value as? HealthSamplesResponse {
+    } else if let value = value as? HealthStatisticsResponse {
       super.writeByte(139)
       super.writeValue(value.toList())
-    } else if let value = value as? SleepSample {
+    } else if let value = value as? HealthSamplesResponse {
       super.writeByte(140)
       super.writeValue(value.toList())
-    } else if let value = value as? SleepQueryRequest {
+    } else if let value = value as? SleepSample {
       super.writeByte(141)
       super.writeValue(value.toList())
-    } else if let value = value as? SleepSamplesResponse {
+    } else if let value = value as? SleepQueryRequest {
       super.writeByte(142)
       super.writeValue(value.toList())
-    } else if let value = value as? BloodPressureSample {
+    } else if let value = value as? SleepSamplesResponse {
       super.writeByte(143)
       super.writeValue(value.toList())
-    } else if let value = value as? BloodPressureSamplesResponse {
+    } else if let value = value as? BloodPressureSample {
       super.writeByte(144)
       super.writeValue(value.toList())
-    } else if let value = value as? TimestampedValue {
+    } else if let value = value as? BloodPressureSamplesResponse {
       super.writeByte(145)
       super.writeValue(value.toList())
-    } else if let value = value as? RoutePoint {
+    } else if let value = value as? TimestampedValue {
       super.writeByte(146)
       super.writeValue(value.toList())
-    } else if let value = value as? HeartRateSummary {
+    } else if let value = value as? RoutePoint {
       super.writeByte(147)
       super.writeValue(value.toList())
-    } else if let value = value as? WorkoutActivity {
+    } else if let value = value as? HeartRateSummary {
       super.writeByte(148)
       super.writeValue(value.toList())
-    } else if let value = value as? WorkoutRecord {
+    } else if let value = value as? WorkoutActivity {
       super.writeByte(149)
       super.writeValue(value.toList())
-    } else if let value = value as? WorkoutQueryRequest {
+    } else if let value = value as? WorkoutRecord {
       super.writeByte(150)
       super.writeValue(value.toList())
-    } else if let value = value as? WorkoutQueryResponse {
+    } else if let value = value as? WorkoutQueryRequest {
       super.writeByte(151)
+      super.writeValue(value.toList())
+    } else if let value = value as? WorkoutQueryResponse {
+      super.writeByte(152)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -1031,6 +1058,13 @@ class AppleHealthMessagesPigeonCodec: FlutterStandardMessageCodec, @unchecked Se
 protocol AppleHealthHostApi {
   func isAvailable() throws -> Bool
   func requestReadAuthorization(dataTypes: [AppleHealthDataType], completion: @escaping (Result<AppleHealthAuthorizationResponse, Error>) -> Void)
+  /// Non-prompting check of whether HealthKit would still present its
+  /// authorization sheet for [dataTypes] (i.e. whether the app has ever
+  /// requested them). Backed by
+  /// `HKHealthStore.getRequestStatusForAuthorization(toShare:read:)`. Lets a
+  /// headless caller fail fast instead of silently reading no data when the app
+  /// was never authorized.
+  func getReadRequestStatus(dataTypes: [AppleHealthDataType], completion: @escaping (Result<AppleHealthReadRequestStatus, Error>) -> Void)
   func openHealthSettings(completion: @escaping (Result<Void, Error>) -> Void)
   /// Throws FlutterError on failure.
   func queryStatistics(request: HealthQueryRequest, completion: @escaping (Result<HealthStatisticsResponse, Error>) -> Void)
@@ -1081,6 +1115,29 @@ class AppleHealthHostApiSetup {
       }
     } else {
       requestReadAuthorizationChannel.setMessageHandler(nil)
+    }
+    /// Non-prompting check of whether HealthKit would still present its
+    /// authorization sheet for [dataTypes] (i.e. whether the app has ever
+    /// requested them). Backed by
+    /// `HKHealthStore.getRequestStatusForAuthorization(toShare:read:)`. Lets a
+    /// headless caller fail fast instead of silently reading no data when the app
+    /// was never authorized.
+    let getReadRequestStatusChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.apple_health.AppleHealthHostApi.getReadRequestStatus\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getReadRequestStatusChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let dataTypesArg = args[0] as! [AppleHealthDataType]
+        api.getReadRequestStatus(dataTypes: dataTypesArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getReadRequestStatusChannel.setMessageHandler(nil)
     }
     let openHealthSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.apple_health.AppleHealthHostApi.openHealthSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

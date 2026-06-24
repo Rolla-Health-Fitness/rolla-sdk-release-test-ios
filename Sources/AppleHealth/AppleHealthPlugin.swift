@@ -36,6 +36,18 @@ extension AppleHealthPlugin: AppleHealthHostApi {
         }
     }
     
+    func getReadRequestStatus(
+        dataTypes: [AppleHealthDataType],
+        completion: @escaping (Result<AppleHealthReadRequestStatus, Error>) -> Void
+    ) {
+        Task {
+            let status = await manager.getReadRequestStatus(
+                for: dataTypes.map { $0.toNative() }
+            )
+            completion(.success(status.toPigeon()))
+        }
+    }
+
     func openHealthSettings(completion: @escaping (Result<Void, Error>) -> Void) {
         Task { @MainActor in
             if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -195,6 +207,19 @@ private extension AHAuthorizationStatus {
             return AppleHealthAuthorizationResponse(result: .notAvailable, errorMessage: nil)
         case .error(let message):
             return AppleHealthAuthorizationResponse(result: .error, errorMessage: message)
+        }
+    }
+}
+
+private extension AHReadRequestStatus {
+    func toPigeon() -> AppleHealthReadRequestStatus {
+        switch self {
+        case .unnecessary:
+            return .unnecessary
+        case .shouldRequest:
+            return .shouldRequest
+        case .unknown:
+            return .unknown
         }
     }
 }
