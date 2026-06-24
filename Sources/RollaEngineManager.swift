@@ -221,13 +221,19 @@ final class RollaEngineManager {
     /// Resolves to a typed ``RollaSyncResult`` for every outcome (success /
     /// skipped / failure are all encoded in the result); `.failure` is reserved
     /// for transport problems (e.g. engine not started).
-    func syncNow(completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void) {
+    ///
+    /// [includeSamples] is forwarded to Dart so the result's `syncedData`
+    /// additionally carries raw sample arrays when requested.
+    func syncNow(
+        includeSamples: Bool = false,
+        completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void
+    ) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))
             return
         }
 
-        channel.invokeMethod("syncNow", arguments: nil) { response in
+        channel.invokeMethod("syncNow", arguments: ["includeSamples": includeSamples]) { response in
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
                     completion(.failure(.flutterError(code: error.code, message: error.message ?? "Sync failed")))

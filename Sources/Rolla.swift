@@ -174,8 +174,20 @@ public final class Rolla {
     /// ``RollaDelegate/rollaDidCompleteSync(_:result:)`` when a sync runs to a
     /// terminal outcome (i.e. the channel round-trip succeeded).
     ///
-    /// - Parameter completion: Delivers the sync result on the main thread.
-    public func sync(completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void) {
+    /// On success, ``RollaSyncResult/syncedData`` carries what the sync
+    /// uploaded: a per-stream summary is always included; pass [includeSamples]
+    /// `true` to additionally get the raw sample arrays
+    /// (``RollaSyncedHealthData/samples``). Samples are heavier (a band sync can
+    /// be thousands of points), so the default is `false`.
+    ///
+    /// - Parameters:
+    ///   - includeSamples: When `true`, also return the raw per-stream samples.
+    ///     Defaults to `false` (summaries only).
+    ///   - completion: Delivers the sync result on the main thread.
+    public func sync(
+        includeSamples: Bool = false,
+        completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void
+    ) {
         DispatchQueue.main.async {
             // Headless sync: don't wire presentation callbacks (see warmUpEngine).
             //
@@ -188,7 +200,7 @@ public final class Rolla {
             self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
                 switch configureResult {
                 case .success:
-                    self.engineManager.syncNow { result in
+                    self.engineManager.syncNow(includeSamples: includeSamples) { result in
                         if case .success(let syncResult) = result {
                             self.delegate?.rollaDidCompleteSync(self, result: syncResult)
                         }
