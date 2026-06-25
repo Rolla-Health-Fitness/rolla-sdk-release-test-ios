@@ -31,7 +31,7 @@ public enum RollaBatteryStatus: String {
     case unknown
 }
 
-/// Result of ``Rolla/getBatteryLevel(completion:)``.
+/// Result of ``Rolla/getBandBatteryLevel(completion:)``.
 ///
 /// ``level`` is non-nil **only** when ``status`` is ``RollaBatteryStatus/available``.
 public struct RollaBatteryResult {
@@ -59,7 +59,10 @@ public struct RollaBatteryResult {
             return RollaBatteryResult(status: .unknown, level: nil)
         }
         let status = RollaBatteryStatus(rawValue: raw) ?? .unknown
-        let level = map["level"] as? Int
+        // Read the int via NSNumber.intValue to match how the sync parser reads
+        // batteryLevel (RollaSyncResult.swift) and the Android wrapper — the
+        // Flutter standard codec delivers a Dart int as NSNumber on iOS.
+        let level = (map["level"] as? NSNumber)?.intValue
         return RollaBatteryResult(status: status, level: status == .available ? level : nil)
     }
 }

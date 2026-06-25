@@ -97,7 +97,8 @@ public final class Rolla {
     /// Call this when you want to remove the engine start-up cost from the first
     /// ``show(from:)`` (e.g. warm up right after login so opening the SDK is
     /// instant), or to enable headless reads such as
-    /// ``getBatteryLevel(completion:)`` before the UI has ever been shown.
+    /// ``getBandBatteryLevel(completion:)`` before the UI has ever been
+    /// shown.
     ///
     /// Warming up runs the Flutter engine and initializes the SDK in the
     /// background; a subsequent ``show(from:)`` reuses the already-running engine
@@ -134,7 +135,7 @@ public final class Rolla {
     /// for transport problems (e.g. the engine could not start).
     ///
     /// - Parameter completion: Delivers the battery result on the main thread.
-    public func getBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
+    public func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
         DispatchQueue.main.async {
             // Headless read: don't wire presentation callbacks (see warmUpEngine).
             //
@@ -148,7 +149,7 @@ public final class Rolla {
             self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
                 switch configureResult {
                 case .success:
-                    self.engineManager.getBatteryLevel(completion: completion)
+                    self.engineManager.getBandBatteryLevel(completion: completion)
                 case .failure(let error):
                     completion(.failure(error))
                 }
@@ -184,7 +185,7 @@ public final class Rolla {
     ///   - includeSamples: When `true`, also return the raw per-stream samples.
     ///     Defaults to `false` (summaries only).
     ///   - completion: Delivers the sync result on the main thread.
-    public func sync(
+    public func syncHealthData(
         includeSamples: Bool = false,
         completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void
     ) {
@@ -192,7 +193,7 @@ public final class Rolla {
             // Headless sync: don't wire presentation callbacks (see warmUpEngine).
             //
             // Capture `self` STRONGLY through the configure round-trip — same
-            // reasoning as getBatteryLevel(completion:). A `[weak self]` here
+            // reasoning as getBandBatteryLevel(completion:). A `[weak self]` here
             // would silently drop `completion` (and the delegate callback) if
             // the caller holds the Rolla instance only for the duration of this
             // call, hanging an `await` forever and defeating the
@@ -200,7 +201,7 @@ public final class Rolla {
             self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
                 switch configureResult {
                 case .success:
-                    self.engineManager.syncNow(includeSamples: includeSamples) { result in
+                    self.engineManager.syncHealthData(includeSamples: includeSamples) { result in
                         if case .success(let syncResult) = result {
                             self.delegate?.rollaDidCompleteSync(self, result: syncResult)
                         }

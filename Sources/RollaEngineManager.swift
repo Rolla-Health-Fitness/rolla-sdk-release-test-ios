@@ -199,7 +199,7 @@ final class RollaEngineManager {
     /// Resolves to a typed ``RollaBatteryResult`` for every no-band / disconnected
     /// / timeout / Bluetooth-off case (`.success` with a non-`.available` status);
     /// `.failure` is reserved for transport problems (e.g. engine not started).
-    func getBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
+    func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))
             return
@@ -224,7 +224,7 @@ final class RollaEngineManager {
     ///
     /// [includeSamples] is forwarded to Dart so the result's `syncedData`
     /// additionally carries raw sample arrays when requested.
-    func syncNow(
+    func syncHealthData(
         includeSamples: Bool = false,
         completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void
     ) {
@@ -233,7 +233,7 @@ final class RollaEngineManager {
             return
         }
 
-        channel.invokeMethod("syncNow", arguments: ["includeSamples": includeSamples]) { response in
+        channel.invokeMethod("syncHealthData", arguments: ["includeSamples": includeSamples]) { response in
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
                     completion(.failure(.flutterError(code: error.code, message: error.message ?? "Sync failed")))

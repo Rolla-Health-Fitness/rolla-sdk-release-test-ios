@@ -52,6 +52,13 @@ public enum RollaSyncSkipReason: String {
     /// same missing permission as ``RollaBatteryStatus/bluetoothPermissionRequired``
     /// (identical raw value), so a host can map it once across both APIs.
     case bluetoothPermissionRequired
+    /// The user's primary source is the band, but Bluetooth is powered off (the
+    /// permission is granted — the radio is off). The host should prompt the
+    /// user to enable Bluetooth before retrying. The band-battery API reports
+    /// the same condition as ``RollaBatteryStatus/bluetoothUnavailable``
+    /// (identical raw value), so a host can map "turn Bluetooth on" once across
+    /// both APIs.
+    case bluetoothUnavailable
     /// The user's primary source is Apple Health, but HealthKit read
     /// authorization has never been requested/granted for this app. The host
     /// should present the authorization flow before retrying. (HealthKit hides
