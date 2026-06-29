@@ -24,15 +24,13 @@ public protocol RollaDelegate: AnyObject {
     func rollaDidRequestTokenRefresh(_ rolla: Rolla)
 
     /// Called when a headless ``Rolla/syncHealthData(includeSamples:completion:)``
-    /// runs to a terminal outcome.
+    /// reaches a terminal outcome.
     ///
-    /// Delivers the same ``RollaSyncResult`` passed to the
-    /// `syncHealthData` completion handler, so a host can observe sync
-    /// results centrally (e.g. to refresh
-    /// its own UI) without threading a completion closure through every call
-    /// site. Fired only when the sync reached a terminal outcome; transport
-    /// failures (e.g. the engine could not start) are delivered to the
-    /// completion handler as `.failure` and do NOT fire this method.
+    /// Delivers the same ``RollaSyncResult`` the `syncHealthData` completion
+    /// handler receives, giving a host one central place to observe sync results
+    /// — for example, to refresh its own UI. It fires only for a terminal
+    /// outcome: transport failures (e.g. the engine could not start) come back
+    /// through the completion handler as `.failure` and do not fire this method.
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance that ran the sync.

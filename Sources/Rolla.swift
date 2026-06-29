@@ -91,30 +91,32 @@ public final class Rolla {
         }
     }
 
-    /// Warm up the Flutter engine and configure the SDK ahead of time, WITHOUT
-    /// presenting any UI.
+    /// Start and configure the Flutter engine ahead of time, WITHOUT presenting
+    /// any UI.
     ///
-    /// Call this when you want to remove the engine start-up cost from the first
-    /// ``show(from:)`` (e.g. warm up right after login so opening the SDK is
-    /// instant), or to enable headless reads such as
-    /// ``getBandBatteryLevel(completion:)`` before the UI has ever been
-    /// shown.
+    /// This is an optional performance optimization. ``show(from:)``,
+    /// ``getBandBatteryLevel(completion:)``, and
+    /// ``syncHealthData(includeSamples:completion:)`` all start the engine
+    /// themselves on first use, so none of them require a prior warm-up — calling
+    /// this simply moves that one-time start-up cost off the first call. A common
+    /// pattern is to warm up right after login so the first ``show(from:)``
+    /// presents instantly.
     ///
-    /// Warming up runs the Flutter engine and initializes the SDK in the
-    /// background; a subsequent ``show(from:)`` reuses the already-running engine
-    /// and goes straight to presenting. Safe to call more than once — repeat
-    /// calls for the same user are a seamless no-op (the session is preserved).
+    /// A later ``show(from:)`` reuses the running engine and presents immediately.
+    /// Safe to call repeatedly: a repeat call for the same user is a no-op that
+    /// preserves the existing session.
     ///
-    /// The warmed engine holds memory for the session; reclaim it with
-    /// ``destroyEngine()`` when you no longer need the SDK.
+    /// The warmed engine holds memory for the lifetime of the session; release it
+    /// with ``destroyEngine()`` once you no longer need the SDK.
     ///
     /// - Parameter completion: Called when the engine is configured and ready,
     ///   or with an error if start-up failed.
     public func warmUpEngine(completion: ((Result<Void, RollaError>) -> Void)? = nil) {
         DispatchQueue.main.async {
-            // Headless: do not wire presentation callbacks (onClose/onError) here
-            // so we never hijack the callbacks of a live presentation owned by a
-            // different Rolla instance. show() wires them when it actually presents.
+            // Warm-up runs headless, so it must not wire up the onClose/onError
+            // callbacks. Another Rolla instance may be presenting right now, and
+            // those callbacks belong to it; show() wires them when this instance
+            // presents.
             self.engineManager.ensureConfigured(with: self.configuration) { result in
                 completion?(result)
             }
@@ -124,15 +126,18 @@ public final class Rolla {
     /// Read the connected Rolla band's current battery level.
     ///
     /// This is a **live BLE read from a Rolla band** — the user must have a Rolla
-    /// band paired and reachable to get a value. The engine is warmed up
-    /// automatically if needed (no UI is shown), so this works even before
-    /// ``show(from:)`` has ever been called.
+    /// band paired and reachable for a value to come back.
     ///
-    /// The result is always a typed ``RollaBatteryResult``: band-absence cases
-    /// (no band paired, disconnected, timeout, not a Rolla band, Bluetooth off)
-    /// resolve as `.success` with a non-`.available` status — never as a thrown
-    /// error and never as a stale value presented as live. `.failure` is reserved
-    /// for transport problems (e.g. the engine could not start).
+    /// Works on its own: the engine starts automatically on first use (no UI is
+    /// shown), so a prior ``warmUpEngine(completion:)`` or ``show(from:)`` is not
+    /// required. Warming up first only removes the one-time start-up latency from
+    /// this call.
+    ///
+    /// The result is always a typed ``RollaBatteryResult``. Cases where no live
+    /// value is available (no band paired, disconnected, timed out, Bluetooth
+    /// off) resolve as `.success` with a non-`.available` status, never as a
+    /// thrown error and never as a stale value reported as live. `.failure` is
+    /// reserved for transport problems, such as the engine failing to start.
     ///
     /// - Parameter completion: Delivers the battery result on the main thread.
     public func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
@@ -160,26 +165,28 @@ public final class Rolla {
     /// Run a full sync of the connected source's health data, WITHOUT showing
     /// any UI.
     ///
-    /// This connects the user's primary data source (the Rolla band over BLE,
-    /// or Apple Health) and uploads anything new — headlessly. The engine is
-    /// warmed up automatically if needed, so this works even before
-    /// ``show(from:)`` has ever been called.
+    /// This connects the user's primary data source and uploads anything new,
+    /// headlessly.
     ///
-    /// The result is always a typed ``RollaSyncResult``: a sync that does
-    /// nothing for an expected reason (no band connected, a sync already
-    /// running, a server-side source, offline) resolves as `.success` with a
-    /// `.skipped` outcome — never as a thrown error. `.failure` is reserved for
-    /// transport problems (e.g. the engine could not start).
+    /// Works on its own: the engine starts automatically on first use, so a prior
+    /// ``warmUpEngine(completion:)`` or ``show(from:)`` is not required. Warming
+    /// up first only removes the one-time start-up latency from this call.
+    ///
+    /// The result is always a typed ``RollaSyncResult``. A sync that does nothing
+    /// for an expected reason — no band connected, a sync already running, a
+    /// server-side source, or offline — resolves as `.success` with a `.skipped`
+    /// outcome, never as a thrown error. `.failure` is reserved for transport
+    /// problems, such as the engine failing to start.
     ///
     /// The same result is also delivered to
-    /// ``RollaDelegate/rollaDidCompleteSync(_:result:)`` when a sync runs to a
-    /// terminal outcome (i.e. the channel round-trip succeeded).
+    /// ``RollaDelegate/rollaDidCompleteSync(_:result:)`` once a sync reaches a
+    /// terminal outcome (the channel round-trip succeeded).
     ///
-    /// On success, ``RollaSyncResult/syncedData`` carries what the sync
-    /// uploaded: a per-stream summary is always included; pass [includeSamples]
-    /// `true` to additionally get the raw sample arrays
-    /// (``RollaSyncedHealthData/samples``). Samples are heavier (a band sync can
-    /// be thousands of points), so the default is `false`.
+    /// On success, ``RollaSyncResult/syncedData`` describes what was uploaded. A
+    /// per-stream summary is always included; pass `includeSamples` `true` to
+    /// also receive the raw sample arrays (``RollaSyncedHealthData/samples``).
+    /// Samples are heavier — a band sync can be thousands of points — so they
+    /// default to off.
     ///
     /// - Parameters:
     ///   - includeSamples: When `true`, also return the raw per-stream samples.

@@ -168,11 +168,11 @@ final class RollaEngineManager {
     }
 
     /// Ensure the Flutter engine is running and the SDK is configured, WITHOUT
-    /// presenting any UI. Used by headless reads (e.g. battery) so a host can
+    /// presenting any UI. Backs the headless reads (e.g. battery), letting a host
     /// call into the SDK before — or without ever — showing the SDK screen.
     ///
-    /// If the engine is already running this re-issues `configure`, which the
-    /// Dart side fast-paths as a seamless-resume for the same user (no reset).
+    /// If the engine is already running this re-issues `configure`. For the same
+    /// user the Dart side treats that as a seamless resume and does not reset.
     func ensureConfigured(with config: RollaConfiguration, completion: @escaping (Result<Void, RollaError>) -> Void) {
         if engine == nil {
             do {
@@ -185,20 +185,24 @@ final class RollaEngineManager {
                 return
             }
         }
-        // Configure with the SAME chrome show(from:) uses (modal + back button).
-        // A headless configure already mounts RollaSdkHome offscreen, and the
-        // Dart entry point won't rebuild it on a later show() (seamless-resume
-        // early-returns once initialized). Matching show()'s chrome here means
-        // the home tree is built once with the correct back button, so a
-        // warm-up-then-show() flow presents identical chrome to a cold show().
+        // Configure with the same presentation settings show(from:) uses (modal
+        // with the back button on). The back button matters most: for a native
+        // host it is the user's only built-in way out of the SDK and back to the
+        // app. It must be set here too, not just in show(): a headless configure
+        // already mounts RollaSdkHome offscreen and the Dart entry point won't
+        // rebuild it on a later show() (seamless-resume early-returns once
+        // initialized), so the home tree is built once with whatever this first
+        // configure passes — a warm-up-then-show() flow with the button off here
+        // would present without it.
         configure(with: config, isModal: true, showBackButton: true, completion: completion)
     }
 
     /// Read the connected Rolla band's battery level over the method channel.
     ///
-    /// Resolves to a typed ``RollaBatteryResult`` for every no-band / disconnected
-    /// / timeout / Bluetooth-off case (`.success` with a non-`.available` status);
-    /// `.failure` is reserved for transport problems (e.g. engine not started).
+    /// Resolves to a typed ``RollaBatteryResult``. Every no-band, disconnected,
+    /// timed-out, or Bluetooth-off case comes back as `.success` with a
+    /// non-`.available` status; `.failure` is reserved for transport problems,
+    /// such as the engine not being started.
     func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))
@@ -218,12 +222,12 @@ final class RollaEngineManager {
 
     /// Run a headless sync over the method channel.
     ///
-    /// Resolves to a typed ``RollaSyncResult`` for every outcome (success /
-    /// skipped / failure are all encoded in the result); `.failure` is reserved
-    /// for transport problems (e.g. engine not started).
+    /// Resolves to a typed ``RollaSyncResult``. Success, skipped, and failure
+    /// outcomes are all encoded in the result; `.failure` is reserved for
+    /// transport problems, such as the engine not being started.
     ///
-    /// [includeSamples] is forwarded to Dart so the result's `syncedData`
-    /// additionally carries raw sample arrays when requested.
+    /// `includeSamples` is forwarded to Dart so the result's `syncedData` also
+    /// carries the raw sample arrays when requested.
     func syncHealthData(
         includeSamples: Bool = false,
         completion: @escaping (Result<RollaSyncResult, RollaError>) -> Void

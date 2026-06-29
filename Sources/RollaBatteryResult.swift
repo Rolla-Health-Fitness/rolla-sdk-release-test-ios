@@ -15,7 +15,9 @@ public enum RollaBatteryStatus: String {
     case disconnected
     /// Connecting to / reading from the band did not complete in time.
     case timeout
-    /// The connected device is not a Rolla band.
+    /// The connected device is not a Rolla band. The current battery read never
+    /// returns this — it only connects to the user's own known band — so the case
+    /// exists for native/forward-compatibility.
     case notRollaDevice
     /// Bluetooth is powered off or otherwise unavailable. (Missing Bluetooth
     /// permission is reported separately as ``bluetoothPermissionRequired``.)

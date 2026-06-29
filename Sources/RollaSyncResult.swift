@@ -1,6 +1,6 @@
 import Foundation
 
-/// The terminal outcome of a headless ``Rolla/sync(completion:)`` call.
+/// The terminal outcome of a headless ``Rolla/syncHealthData(includeSamples:completion:)`` call.
 ///
 /// A sync connects the user's primary data source and uploads anything new,
 /// with no SDK UI. The outcome is always one of these — the call never fails
@@ -80,8 +80,9 @@ public enum RollaSyncSkipReason: String {
 
 /// A per-stream summary: how many samples synced and the time window they span.
 ///
-/// `from`/`to` are epoch-millisecond UTC timestamps (nil only when `count` is 0,
-/// though a summary is present only when the stream had data).
+/// A summary is only ever produced for a stream that had data, so in practice
+/// `count` is at least 1 and `from`/`to` (epoch-millisecond UTC timestamps) are
+/// set; they are optional only to tolerate a malformed wire payload.
 public struct RollaSyncedStreamSummary {
     public let count: Int
     /// Earliest sample timestamp, epoch ms (UTC).
@@ -213,7 +214,7 @@ public struct RollaSyncedSamples {
     }
 }
 
-/// The health data a single ``Rolla/sync(includeSamples:completion:)`` call
+/// The health data a single ``Rolla/syncHealthData(includeSamples:completion:)`` call
 /// uploaded.
 ///
 /// A per-stream summary (counts, time windows, step total, sleep minutes,
@@ -257,7 +258,7 @@ public struct RollaSyncedHealthData {
     }
 }
 
-/// Result of ``Rolla/sync(completion:)``.
+/// Result of ``Rolla/syncHealthData(includeSamples:completion:)``.
 ///
 /// ``hasNewData`` is meaningful only for ``RollaSyncOutcome/success`` /
 /// ``RollaSyncOutcome/partial``; ``skipReason`` is set only for
@@ -280,8 +281,11 @@ public struct RollaSyncResult {
     public let error: String?
 
     /// The health data this sync uploaded — per-stream summaries always, raw
-    /// samples when `includeSamples: true` was requested. Non-nil on a success
-    /// that had data; nil for `.skipped` / `.failure` and on an empty success.
+    /// samples when `includeSamples: true` was requested. nil for `.skipped` /
+    /// `.failure`. A success that uploaded nothing (`hasNewData == false`) can
+    /// still carry non-nil data: a band sync that connected and read the
+    /// battery returns ``RollaSyncedHealthData`` with only ``batteryLevel`` set.
+    /// So `hasNewData == false` does not imply `syncedData == nil`.
     public let syncedData: RollaSyncedHealthData?
 
     public init(
@@ -331,7 +335,8 @@ public struct RollaSyncResult {
 
     /// Build a result from the method-channel wire map
     /// `{ "outcome": String, "hasNewData": Bool, "source": String,
-    ///    "lastSyncAt": String?, "skipReason": String?, "error": String? }`.
+    ///    "lastSyncAt": String?, "skipReason": String?, "error": String?,
+    ///    "syncedData": [String: Any]? }`.
     /// Unknown enum strings map to their `.unknown` case so older host
     /// integrations keep working.
     static func from(_ response: Any?) -> RollaSyncResult {
