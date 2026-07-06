@@ -21,12 +21,12 @@ public final class Rolla {
     public func show(from viewController: UIViewController) {
         DispatchQueue.main.async {
             guard !self.engineManager.isPresenting else {
-                self.delegate?.rolla(self, didFailWithError: .alreadyPresenting)
+                self.delegate?.rollaDidFailWithError(self, error: .alreadyPresenting)
                 return
             }
 
             guard viewController.viewIfLoaded?.window != nil else {
-                self.delegate?.rolla(self, didFailWithError: .invalidPresentationContext)
+                self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
                 return
             }
 
@@ -42,7 +42,7 @@ public final class Rolla {
 
                 case .failure(let error):
                     self.cleanup()
-                    self.delegate?.rolla(self, didFailWithError: error)
+                    self.delegate?.rollaDidFailWithError(self, error: error)
                 }
             }
         }
@@ -345,7 +345,7 @@ public final class Rolla {
 
         engineManager.onError = { [weak self] code, message in
             guard let self else { return }
-            self.delegate?.rolla(self, didFailWithError: .flutterError(code: code, message: message))
+            self.delegate?.rollaDidFailWithError(self, error: .flutterError(code: code, message: message))
         }
 
         engineManager.onTokenRefreshed = { [weak self] token, refreshToken, expiresIn in

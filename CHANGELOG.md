@@ -42,6 +42,10 @@
 - **[improvement] Split the combined permission screen into two separate pages for Bluetooth and Location.** Each permission now has its own dedicated page with contextual copy explaining why it is needed, giving users a clearer understanding before granting access.
 - **[fix] Bugs and stability fixes.** Various internal fixes and stability improvements.
 
+### iOS
+
+- **[breaking] `RollaDelegate` error method renamed: `rolla(_:didFailWithError:)` → `rollaDidFailWithError(_:error:)`.** Aligns the one anonymous-form method with the rest of the `rollaDid…` delegate family. Migration is a signature change only — same parameters, same behavior: `func rollaDidFailWithError(_ rolla: Rolla, error: RollaError)`.
+
 ---
 
 ## 0.1.11

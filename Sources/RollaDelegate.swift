@@ -2,7 +2,7 @@ import Foundation
 
 public protocol RollaDelegate: AnyObject {
     func rollaDidClose(_ rolla: Rolla, reason: RollaCloseReason)
-    func rolla(_ rolla: Rolla, didFailWithError error: RollaError)
+    func rollaDidFailWithError(_ rolla: Rolla, error: RollaError)
 
     /// Called when the SDK successfully refreshes tokens internally.
     ///
@@ -116,7 +116,7 @@ public protocol RollaDelegate: AnyObject {
 
 public extension RollaDelegate {
     func rollaDidClose(_ rolla: Rolla, reason: RollaCloseReason) {}
-    func rolla(_ rolla: Rolla, didFailWithError error: RollaError) {}
+    func rollaDidFailWithError(_ rolla: Rolla, error: RollaError) {}
     func rollaDidRefreshToken(_ rolla: Rolla, token: String, refreshToken: String?, expiresIn: TimeInterval?) {}
     func rollaDidRequestTokenRefresh(_ rolla: Rolla) {}
     func rollaDidCompleteSync(_ rolla: Rolla, result: RollaSyncResult) {}
