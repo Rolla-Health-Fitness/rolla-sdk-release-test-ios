@@ -36,6 +36,82 @@ public protocol RollaDelegate: AnyObject {
     ///   - rolla: The Rolla instance that ran the sync.
     ///   - result: The terminal sync result.
     func rollaDidCompleteSync(_ rolla: Rolla, result: RollaSyncResult)
+
+    /// Called when an activity completed inside the SDK UI reaches a lifecycle
+    /// phase: `finished` (saved in-SDK — instant), then `uploaded` (confirmed
+    /// by the backend) or `uploadFailed` (the upload gave up permanently).
+    ///
+    /// ``RollaCompletedActivity/source`` distinguishes live-tracked activities
+    /// from manually logged ones. Key idempotency on `(activityId, phase)` —
+    /// `uploaded`/`uploadFailed` can re-fire across retries. Distinct from
+    /// ``rollaDidClose(_:reason:)``: it fires whether or not the user then
+    /// closes the SDK UI, and `uploaded` can arrive after close (uploads
+    /// finish in the background while the engine is alive).
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - activity: The activity payload, including its lifecycle phase.
+    func rollaDidCompleteActivity(_ rolla: Rolla, activity: RollaCompletedActivity)
+
+    /// Called when a sync completes inside the SDK UI: the auto-sync on open,
+    /// the sync on return from background while the SDK is showing, and the
+    /// in-app manual refresh.
+    ///
+    /// Distinct from ``rollaDidCompleteSync(_:result:)``, which fires only for
+    /// host-initiated headless ``Rolla/syncHealthData(includeSamples:completion:)``
+    /// calls — the payload type is shared so a host reads one result shape for
+    /// both directions. ``RollaSyncResult/syncedData`` is `nil` on UI syncs.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - result: The terminal result of the UI sync.
+    func rollaDidCompleteUISync(_ rolla: Rolla, result: RollaSyncResult)
+
+    /// Called when the user pairs a band inside the SDK UI — the band is
+    /// persisted locally and registered with the backend at this moment.
+    /// Auto-reconnects and login restores do not fire this.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - band: The paired band (name, MAC, device type, RSSI).
+    func rollaDidPairBand(_ rolla: Rolla, band: RollaBandInfo)
+
+    /// Called when the user unpairs the band inside the SDK UI (confirmed by
+    /// the backend). A band unpaired remotely — from another device — is
+    /// reconciled silently and does not fire this.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - band: The unpaired band (MAC plus last cached battery/firmware/serial).
+    func rollaDidUnpairBand(_ rolla: Rolla, band: RollaBandInfo)
+
+    /// Called when the SDK observes the user's primary data source change —
+    /// committed inside the SDK UI, or discovered on a profile/connections
+    /// refresh (changes made server-side or on another device surface on the
+    /// next refresh, not instantly).
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - change: The previous and current primary source.
+    func rollaDidChangePrimarySource(_ rolla: Rolla, change: RollaPrimarySourceChanged)
+
+    /// Called when the user saves goal changes inside the SDK UI (each toggle
+    /// backend-confirmed). One call per save, carrying both the toggled goals
+    /// and the resulting enabled set.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - change: The toggled goals and the enabled set after the save.
+    func rollaDidChangeGoals(_ rolla: Rolla, change: RollaGoalsChanged)
+
+    /// Called when the user updates profile data inside the SDK UI — a profile
+    /// details edit, a weight log, or a blood-pressure log — with only the
+    /// changed fields. See ``RollaProfileUpdated`` for the key vocabulary.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - update: The sparse map of changed fields.
+    func rollaDidUpdateProfile(_ rolla: Rolla, update: RollaProfileUpdated)
 }
 
 public extension RollaDelegate {
@@ -44,4 +120,11 @@ public extension RollaDelegate {
     func rollaDidRefreshToken(_ rolla: Rolla, token: String, refreshToken: String?, expiresIn: TimeInterval?) {}
     func rollaDidRequestTokenRefresh(_ rolla: Rolla) {}
     func rollaDidCompleteSync(_ rolla: Rolla, result: RollaSyncResult) {}
+    func rollaDidCompleteActivity(_ rolla: Rolla, activity: RollaCompletedActivity) {}
+    func rollaDidCompleteUISync(_ rolla: Rolla, result: RollaSyncResult) {}
+    func rollaDidPairBand(_ rolla: Rolla, band: RollaBandInfo) {}
+    func rollaDidUnpairBand(_ rolla: Rolla, band: RollaBandInfo) {}
+    func rollaDidChangePrimarySource(_ rolla: Rolla, change: RollaPrimarySourceChanged) {}
+    func rollaDidChangeGoals(_ rolla: Rolla, change: RollaGoalsChanged) {}
+    func rollaDidUpdateProfile(_ rolla: Rolla, update: RollaProfileUpdated) {}
 }

@@ -145,12 +145,27 @@ final class RollaBandDependenciesFactory {
             characteristicObserver: characteristicObserver
         )
 
+        // Standing observer for the band's spontaneous end-of-exercise frames
+        // (0x16 06 00 / 0x18 0xFF). Its OWN manager instance so it fans out on
+        // FFF7 independently of the HR observer (QA-207).
+        let activityEndObservationManager = ObservationSessionsManager<RollaBandActivityEndMarker>(
+            characteristicObserver: characteristicObserver
+        )
+
         // Observation use cases
         let heartRateObservationUseCase = RollaBandHeartRateObservationUseCase(
             observationManager: heartRateObservationManager,
             deviceIdentityManager: deviceIdentityManager,
             deviceManager: deviceManager,
             heartRateParser: RollaBandHeartRateInActivityDataParser(),
+            commandExecutor: commandExecutor,
+            logger: logger
+        )
+
+        let activityEndObservationUseCase = RollaBandActivityEndObservationUseCase(
+            observationManager: activityEndObservationManager,
+            deviceIdentityManager: deviceIdentityManager,
+            deviceManager: deviceManager,
             commandExecutor: commandExecutor,
             logger: logger
         )
@@ -288,6 +303,7 @@ final class RollaBandDependenciesFactory {
             workoutSessionUseCase: workoutSessionUseCase,
             activityRestoreUseCase: activityRestoreUseCase,
             heartRateObservationUseCase: heartRateObservationUseCase,
+            activityEndObservationUseCase: activityEndObservationUseCase,
             rscObservationUseCase: rscObservationUseCase,
             batteryObservationUseCase: batteryObservationUseCase,
             chargingStateObservationUseCase: chargingStateObservationUseCase,

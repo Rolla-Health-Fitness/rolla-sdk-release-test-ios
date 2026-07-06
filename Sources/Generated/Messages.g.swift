@@ -205,6 +205,13 @@ enum BandActivityType: Int {
   case volleyball = 17
 }
 
+/// Reason an activity ended without the host app issuing stopWorkout.
+enum BandActivityEndReason: Int {
+  /// The band itself ended the activity (e.g. user pressed stop on the band,
+  /// auto-exercise timeout). Native detects firmware frame 0x16 06 00.
+  case endedOnBand = 0
+}
+
 /// Charging state of the Rolla Band
 enum BandChargingState: Int {
   case charging = 0
@@ -737,46 +744,52 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
     case 134:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return BandChargingState(rawValue: enumResultAsInt)
+        return BandActivityEndReason(rawValue: enumResultAsInt)
       }
       return nil
     case 135:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return RollaBandSleepStageValue(rawValue: enumResultAsInt)
+        return BandChargingState(rawValue: enumResultAsInt)
       }
       return nil
     case 136:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return PedometerPermissionStatus(rawValue: enumResultAsInt)
+        return RollaBandSleepStageValue(rawValue: enumResultAsInt)
       }
       return nil
     case 137:
-      return BluetoothDevice.fromList(self.readValue() as! [Any?])
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return PedometerPermissionStatus(rawValue: enumResultAsInt)
+      }
+      return nil
     case 138:
-      return UserData.fromList(self.readValue() as! [Any?])
+      return BluetoothDevice.fromList(self.readValue() as! [Any?])
     case 139:
-      return GpsData.fromList(self.readValue() as! [Any?])
+      return UserData.fromList(self.readValue() as! [Any?])
     case 140:
-      return RollaBandStep.fromList(self.readValue() as! [Any?])
+      return GpsData.fromList(self.readValue() as! [Any?])
     case 141:
-      return RollaBandStepsSyncResponse.fromList(self.readValue() as! [Any?])
+      return RollaBandStep.fromList(self.readValue() as! [Any?])
     case 142:
-      return RollaBandHeartRate.fromList(self.readValue() as! [Any?])
+      return RollaBandStepsSyncResponse.fromList(self.readValue() as! [Any?])
     case 143:
-      return RollaBandHeartRateSyncResponse.fromList(self.readValue() as! [Any?])
+      return RollaBandHeartRate.fromList(self.readValue() as! [Any?])
     case 144:
-      return RollaBandHRV.fromList(self.readValue() as! [Any?])
+      return RollaBandHeartRateSyncResponse.fromList(self.readValue() as! [Any?])
     case 145:
-      return RollaBandHRVSyncResponse.fromList(self.readValue() as! [Any?])
+      return RollaBandHRV.fromList(self.readValue() as! [Any?])
     case 146:
-      return RollaBandSleepStage.fromList(self.readValue() as! [Any?])
+      return RollaBandHRVSyncResponse.fromList(self.readValue() as! [Any?])
     case 147:
-      return RollaBandSleepSyncResponse.fromList(self.readValue() as! [Any?])
+      return RollaBandSleepStage.fromList(self.readValue() as! [Any?])
     case 148:
-      return RollaBandMotionPoint.fromList(self.readValue() as! [Any?])
+      return RollaBandSleepSyncResponse.fromList(self.readValue() as! [Any?])
     case 149:
+      return RollaBandMotionPoint.fromList(self.readValue() as! [Any?])
+    case 150:
       return RollaBandMotionSyncResponse.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -801,53 +814,56 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
     } else if let value = value as? BandActivityType {
       super.writeByte(133)
       super.writeValue(value.rawValue)
-    } else if let value = value as? BandChargingState {
+    } else if let value = value as? BandActivityEndReason {
       super.writeByte(134)
       super.writeValue(value.rawValue)
-    } else if let value = value as? RollaBandSleepStageValue {
+    } else if let value = value as? BandChargingState {
       super.writeByte(135)
       super.writeValue(value.rawValue)
-    } else if let value = value as? PedometerPermissionStatus {
+    } else if let value = value as? RollaBandSleepStageValue {
       super.writeByte(136)
       super.writeValue(value.rawValue)
-    } else if let value = value as? BluetoothDevice {
+    } else if let value = value as? PedometerPermissionStatus {
       super.writeByte(137)
-      super.writeValue(value.toList())
-    } else if let value = value as? UserData {
+      super.writeValue(value.rawValue)
+    } else if let value = value as? BluetoothDevice {
       super.writeByte(138)
       super.writeValue(value.toList())
-    } else if let value = value as? GpsData {
+    } else if let value = value as? UserData {
       super.writeByte(139)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandStep {
+    } else if let value = value as? GpsData {
       super.writeByte(140)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandStepsSyncResponse {
+    } else if let value = value as? RollaBandStep {
       super.writeByte(141)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandHeartRate {
+    } else if let value = value as? RollaBandStepsSyncResponse {
       super.writeByte(142)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandHeartRateSyncResponse {
+    } else if let value = value as? RollaBandHeartRate {
       super.writeByte(143)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandHRV {
+    } else if let value = value as? RollaBandHeartRateSyncResponse {
       super.writeByte(144)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandHRVSyncResponse {
+    } else if let value = value as? RollaBandHRV {
       super.writeByte(145)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandSleepStage {
+    } else if let value = value as? RollaBandHRVSyncResponse {
       super.writeByte(146)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandSleepSyncResponse {
+    } else if let value = value as? RollaBandSleepStage {
       super.writeByte(147)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandMotionPoint {
+    } else if let value = value as? RollaBandSleepSyncResponse {
       super.writeByte(148)
       super.writeValue(value.toList())
-    } else if let value = value as? RollaBandMotionSyncResponse {
+    } else if let value = value as? RollaBandMotionPoint {
       super.writeByte(149)
+      super.writeValue(value.toList())
+    } else if let value = value as? RollaBandMotionSyncResponse {
+      super.writeByte(150)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -1239,6 +1255,13 @@ protocol RollaBandActivityApiProtocol {
   /// [cadence] - Cadence in steps per minute (spm)
   /// [steps] - Steps calculated for this measurement period (can be fractional)
   func onRunningSpeedAndCadenceReceived(speed speedArg: Double, cadence cadenceArg: Int64, steps stepsArg: Double, completion: @escaping (Result<Void, PigeonError>) -> Void)
+  /// Called when the band ends the active workout on its own, with no
+  /// corresponding host-issued stopWorkout in flight. Native detects the
+  /// spontaneous firmware frame 0x16 06 00 on the notify characteristic.
+  /// Flutter should auto-finalize the partial activity and notify the user.
+  ///
+  /// [reason] - Why the activity ended (currently always endedOnBand).
+  func onActivityEndedByBand(reason reasonArg: BandActivityEndReason, completion: @escaping (Result<Void, PigeonError>) -> Void)
 }
 class RollaBandActivityApi: RollaBandActivityApiProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
@@ -1280,6 +1303,30 @@ class RollaBandActivityApi: RollaBandActivityApiProtocol {
     let channelName: String = "dev.flutter.pigeon.rolla_sdk.RollaBandActivityApi.onRunningSpeedAndCadenceReceived\(messageChannelSuffix)"
     let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
     channel.sendMessage([speedArg, cadenceArg, stepsArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+  /// Called when the band ends the active workout on its own, with no
+  /// corresponding host-issued stopWorkout in flight. Native detects the
+  /// spontaneous firmware frame 0x16 06 00 on the notify characteristic.
+  /// Flutter should auto-finalize the partial activity and notify the user.
+  ///
+  /// [reason] - Why the activity ended (currently always endedOnBand).
+  func onActivityEndedByBand(reason reasonArg: BandActivityEndReason, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.rolla_sdk.RollaBandActivityApi.onActivityEndedByBand\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([reasonArg] as [Any?]) { response in
       guard let listResponse = response as? [Any?] else {
         completion(.failure(createConnectionError(withChannelName: channelName)))
         return

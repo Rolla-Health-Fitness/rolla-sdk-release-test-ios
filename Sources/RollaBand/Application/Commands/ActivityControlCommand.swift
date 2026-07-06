@@ -111,9 +111,14 @@ public struct ActivityControlCommand: RollaBandRequestCommand {
                             return (control, workoutReceived)
                         }
 
-                        if workoutReceived {
-                            return (control, true)
-                        }
+                        // The band acknowledged the control command. The follow-up
+                        // 0x16 0x06 workout-status frame is an *optional* confirmation —
+                        // some firmware/flag configurations no longer emit it on stop. Do
+                        // not block waiting for it: treat the control ACK as authoritative
+                        // and return immediately (workoutConfirmed reflects whether the
+                        // optional frame did arrive). Waiting for a frame that never comes
+                        // is what hung the activity-save flow indefinitely.
+                        return (control, workoutReceived)
                     }
                 }
 
@@ -137,21 +142,29 @@ public struct ActivityControlCommand: RollaBandRequestCommand {
                 return (nil, false)
             }
             
-            group.addTask {
+            group.addTask { [timeout] in
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                return (nil, false)
+                // Throw (don't return nil) so the harvest loop's `try` rethrows and the
+                // group terminates. Returning nil here let the loop fall through to
+                // awaiting the notification task forever — the timeout was never enforced.
+                throw RollaBandCommandError.timeout(command: .activityControl, duration: timeout)
             }
-            
-            for try await (control, workout) in group {
-                if let control = control {
-                    controlResult = control
-                    workoutConfirmed = workout
-                    break
+
+            do {
+                for try await (control, workout) in group {
+                    if let control = control {
+                        controlResult = control
+                        workoutConfirmed = workout
+                        break
+                    }
                 }
+            } catch {
+                group.cancelAll()
+                throw error
             }
-            
+
             group.cancelAll()
-            
+
             guard let result = controlResult else {
                 throw RollaBandCommandError.noResponse(command: .activityControl)
             }

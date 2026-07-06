@@ -116,7 +116,10 @@ public final class Rolla {
             // Warm-up runs headless, so it must not wire up the onClose/onError
             // callbacks. Another Rolla instance may be presenting right now, and
             // those callbacks belong to it; show() wires them when this instance
-            // presents.
+            // presents. The host-EVENT callbacks are different: they are
+            // engine-scoped, not presentation-scoped, so a headless warm-up DOES
+            // wire them — events must flow without the SDK UI ever opening.
+            self.wireHostEventCallbacks()
             self.engineManager.ensureConfigured(with: self.configuration) { result in
                 completion?(result)
             }
@@ -143,6 +146,8 @@ public final class Rolla {
     public func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
         DispatchQueue.main.async {
             // Headless read: don't wire presentation callbacks (see warmUpEngine).
+            // Host-event callbacks ARE wired — they're engine-scoped.
+            self.wireHostEventCallbacks()
             //
             // Capture `self` STRONGLY through the configure round-trip. This is a
             // one-shot terminal completion and `engineManager` (a shared singleton)
@@ -198,6 +203,8 @@ public final class Rolla {
     ) {
         DispatchQueue.main.async {
             // Headless sync: don't wire presentation callbacks (see warmUpEngine).
+            // Host-event callbacks ARE wired — they're engine-scoped.
+            self.wireHostEventCallbacks()
             //
             // Capture `self` STRONGLY through the configure round-trip — same
             // reasoning as getBandBatteryLevel(completion:). A `[weak self]` here
@@ -282,7 +289,54 @@ public final class Rolla {
         }
     }
 
+    /// Wire the host-event closures to THIS instance's delegate for the
+    /// engine's lifetime. Unlike the presentation callbacks (wired in
+    /// ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss), events keep
+    /// flowing after the SDK UI closes — a late `uploaded` activity phase must
+    /// still reach the host, and a host that only ever runs headless calls
+    /// still gets events. Cleared only by ``destroyEngine()`` or when another
+    /// Rolla instance wires itself (last writer wins, matching the
+    /// presentation-callback semantics).
+    ///
+    /// `self` is captured strongly on purpose: hosts often create a Rolla
+    /// instance per call and drop it; a weak capture would silently end event
+    /// delivery the moment that instance deallocates. The engine manager is a
+    /// singleton and `Rolla` holds no strong reference back to it, so this is
+    /// a cycle-free lifetime extension until destroy/rewire. The delegate
+    /// property itself stays weak — the host controls its listener's lifetime.
+    private func wireHostEventCallbacks() {
+        engineManager.onActivityCompleted = { activity in
+            self.delegate?.rollaDidCompleteActivity(self, activity: activity)
+        }
+
+        engineManager.onUiSyncCompleted = { result in
+            self.delegate?.rollaDidCompleteUISync(self, result: result)
+        }
+
+        engineManager.onBandPaired = { band in
+            self.delegate?.rollaDidPairBand(self, band: band)
+        }
+
+        engineManager.onBandUnpaired = { band in
+            self.delegate?.rollaDidUnpairBand(self, band: band)
+        }
+
+        engineManager.onPrimarySourceChanged = { change in
+            self.delegate?.rollaDidChangePrimarySource(self, change: change)
+        }
+
+        engineManager.onGoalsChanged = { change in
+            self.delegate?.rollaDidChangeGoals(self, change: change)
+        }
+
+        engineManager.onProfileUpdated = { update in
+            self.delegate?.rollaDidUpdateProfile(self, update: update)
+        }
+    }
+
     private func setupCallbacks() {
+        wireHostEventCallbacks()
+
         engineManager.onClose = { [weak self] reason in
             guard let self else { return }
             self.pendingCloseReason = .flutterRequested(reason: reason)

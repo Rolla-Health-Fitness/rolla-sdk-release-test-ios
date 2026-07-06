@@ -34,6 +34,7 @@ final class RollaBandDependencies: @unchecked Sendable {
     public let workoutSessionUseCase: WorkoutSessionUseCase
     public let activityRestoreUseCase: ActivityRestoreUseCase
     public let heartRateObservationUseCase: HeartRateObservationUseCase
+    public let activityEndObservationUseCase: ActivityEndObservationUseCase
     public let rscObservationUseCase: RunningSpeedCadenceObservationUseCase
     public let batteryObservationUseCase: BatteryObservationUseCase
     public let chargingStateObservationUseCase: ChargingStateObservationUseCase
@@ -74,6 +75,7 @@ final class RollaBandDependencies: @unchecked Sendable {
         workoutSessionUseCase: WorkoutSessionUseCase,
         activityRestoreUseCase: ActivityRestoreUseCase,
         heartRateObservationUseCase: HeartRateObservationUseCase,
+        activityEndObservationUseCase: ActivityEndObservationUseCase,
         rscObservationUseCase: RunningSpeedCadenceObservationUseCase,
         batteryObservationUseCase: BatteryObservationUseCase,
         chargingStateObservationUseCase: ChargingStateObservationUseCase,
@@ -107,6 +109,7 @@ final class RollaBandDependencies: @unchecked Sendable {
         self.workoutSessionUseCase = workoutSessionUseCase
         self.activityRestoreUseCase = activityRestoreUseCase
         self.heartRateObservationUseCase = heartRateObservationUseCase
+        self.activityEndObservationUseCase = activityEndObservationUseCase
         self.rscObservationUseCase = rscObservationUseCase
         self.batteryObservationUseCase = batteryObservationUseCase
         self.chargingStateObservationUseCase = chargingStateObservationUseCase

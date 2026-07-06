@@ -22,6 +22,17 @@ final class RollaEngineManager {
     var onTokenRefreshed: ((String, String?, TimeInterval?) -> Void)?
     var onTokenExpired: (() -> Void)?
 
+    // Host-event closures. Unlike the presentation callbacks above (wired on
+    // show, cleared on dismiss), these are wired for the engine's lifetime by
+    // Rolla.wireHostEventCallbacks() and cleared only in destroy().
+    var onActivityCompleted: ((RollaCompletedActivity) -> Void)?
+    var onUiSyncCompleted: ((RollaSyncResult) -> Void)?
+    var onBandPaired: ((RollaBandInfo) -> Void)?
+    var onBandUnpaired: ((RollaBandInfo) -> Void)?
+    var onPrimarySourceChanged: ((RollaPrimarySourceChanged) -> Void)?
+    var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
+    var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
+
     private init() {}
 
     func setPresenting(_ value: Bool) {
@@ -87,6 +98,34 @@ final class RollaEngineManager {
 
         case "onTokenExpired":
             onTokenExpired?()
+            result(nil)
+
+        case "onActivityCompleted":
+            onActivityCompleted?(RollaCompletedActivity.from(call.arguments))
+            result(nil)
+
+        case "onUiSyncCompleted":
+            onUiSyncCompleted?(RollaSyncResult.from(call.arguments))
+            result(nil)
+
+        case "onBandPaired":
+            onBandPaired?(RollaBandInfo.from(call.arguments))
+            result(nil)
+
+        case "onBandUnpaired":
+            onBandUnpaired?(RollaBandInfo.from(call.arguments))
+            result(nil)
+
+        case "onPrimarySourceChanged":
+            onPrimarySourceChanged?(RollaPrimarySourceChanged.from(call.arguments))
+            result(nil)
+
+        case "onGoalsChanged":
+            onGoalsChanged?(RollaGoalsChanged.from(call.arguments))
+            result(nil)
+
+        case "onProfileUpdated":
+            onProfileUpdated?(RollaProfileUpdated.from(call.arguments))
             result(nil)
 
         default:
@@ -273,6 +312,13 @@ final class RollaEngineManager {
         onError = nil
         onTokenRefreshed = nil
         onTokenExpired = nil
+        onActivityCompleted = nil
+        onUiSyncCompleted = nil
+        onBandPaired = nil
+        onBandUnpaired = nil
+        onPrimarySourceChanged = nil
+        onGoalsChanged = nil
+        onProfileUpdated = nil
         engine?.destroyContext()
         engine = nil
         isReady = false

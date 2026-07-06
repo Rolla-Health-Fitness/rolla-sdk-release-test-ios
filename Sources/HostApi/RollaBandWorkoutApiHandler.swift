@@ -9,6 +9,7 @@ actor RollaBandWorkoutApiHandler {
     private var heartRateStreamingTask: Task<Void, Never>?
     private var rscStreamingTask: Task<Void, Never>?
     private var workoutStateMonitoringTask: Task<Void, Never>?
+    private var bandEndMonitoringTask: Task<Void, Never>?
     private var currentStreamingDeviceIdentifier: String?
 
     init(
@@ -34,6 +35,7 @@ extension RollaBandWorkoutApiHandler: RollaBandWorkoutHostApi {
                 await self.startWorkoutStateMonitoring()
                 await self.setCurrentStreamingDeviceIdentifier(from: uuid)
                 await self.startDataStreaming(deviceId: uuid)
+                await self.startBandEndMonitoring(deviceId: uuid)
 
                 await MainActor.run { completion(.success(())) }
             } catch {
@@ -46,6 +48,13 @@ extension RollaBandWorkoutApiHandler: RollaBandWorkoutHostApi {
         let activityType = type.rollaBandActivityType
 
         Task {
+            // Tear the band-end observer down BEFORE issuing the commanded stop.
+            // A host stop makes the band emit the same 0x16 06 00 end frame the
+            // observer watches for; stopping first means a commanded stop never
+            // produces a false-positive onActivityEndedByBand. (The Dart _finishing
+            // latch still guards re-entrancy, but we don't rely on it as the sole
+            // line of defense — the native layer no longer emits on a host stop.)
+            await self.stopBandEndMonitoring()
             do {
                 try await self.rollaBandManager.stopWorkout(
                     identifier: uuid,
@@ -77,8 +86,11 @@ extension RollaBandWorkoutApiHandler: RollaBandWorkoutHostApi {
                 await self.rollaBandManager.setActivityRestorePending(pending)
 
                 // User chose save/discard (or no activity was found). Execute the
-                // deferred stop so the band exits activity mode now.
+                // deferred stop so the band exits activity mode now. Tear down the
+                // band-end observer first so this commanded stop's 0x16 06 00 echo
+                // cannot fire a false-positive onActivityEndedByBand.
                 if let deviceId {
+                    await self.stopBandEndMonitoring()
                     try? await self.rollaBandManager.stopWorkout(identifier: deviceId, type: .run)
                 }
             } else {
@@ -98,6 +110,7 @@ extension RollaBandWorkoutApiHandler: RollaBandWorkoutHostApi {
             // On iOS streaming is only active after startWorkout; this brings it back.
             await self.setCurrentStreamingDeviceIdentifier(from: uuid)
             await self.startDataStreaming(deviceId: uuid)
+            await self.startBandEndMonitoring(deviceId: uuid)
 
             await MainActor.run { completion(.success(())) }
         }
@@ -144,15 +157,18 @@ private extension RollaBandWorkoutApiHandler {
         switch workoutState {
         case .inactive:
             stopWorkoutStateMonitoring()
+            stopBandEndMonitoring()
             stopDataStreaming(clearCurrentDevice: true)
 
         case .active(let macAddress, _, _):
             if currentStreamingDeviceIdentifier != macAddress {
                 currentStreamingDeviceIdentifier = macAddress
                 startDataStreaming(deviceId: macAddress)
+                startBandEndMonitoring(deviceId: macAddress)
             }
 
         case .suspended:
+            stopBandEndMonitoring()
             stopDataStreaming(clearCurrentDevice: true)
         }
     }
@@ -209,9 +225,42 @@ private extension RollaBandWorkoutApiHandler {
         }
     }
 
+    // Standing router for the band-initiated end frame (0x16 06 00 / 0x18 0xFF).
+    // The live HR parser drops these frames and the workout-state stream only
+    // yields .inactive on a HOST-commanded stop, so neither existing path detects
+    // a SPONTANEOUS band end. We subscribe to a dedicated end-frame stream backed
+    // by a second observer on the same FFF7 characteristic (safe: the manager fans
+    // out per stream id). Fire once, then stop local data streaming so the iOS HR
+    // stream does not freeze, and tell Flutter to auto-finalize the activity.
+    func startBandEndMonitoring(deviceId: String) {
+        bandEndMonitoringTask?.cancel()
+        bandEndMonitoringTask = Task {
+            do {
+                for await _ in try await self.rollaBandManager.observeActivityEndedByBand(identifier: deviceId) {
+                    guard !Task.isCancelled else { break }
+                    // Stop streaming (NOT stopBandEndMonitoring — that would
+                    // self-cancel this task before the callback fires).
+                    await self.stopDataStreaming(clearCurrentDevice: false)
+                    await MainActor.run {
+                        self.flutterApi.onActivityEndedByBand(reason: .endedOnBand) { _ in }
+                    }
+                    break
+                }
+            } catch {
+                // Observation failed or stopped
+            }
+        }
+    }
+
+    func stopBandEndMonitoring() {
+        bandEndMonitoringTask?.cancel()
+        bandEndMonitoringTask = nil
+    }
+
     func stopObservations(deviceId: String) async {
         try? await rollaBandManager.stopObservingHeartRate(identifier: deviceId)
         try? await rollaBandManager.stopObservingRunningMetrics(identifier: deviceId)
+        try? await rollaBandManager.stopObservingActivityEnd(identifier: deviceId)
     }
 
     func setCurrentStreamingDeviceIdentifier(from deviceId: String) {

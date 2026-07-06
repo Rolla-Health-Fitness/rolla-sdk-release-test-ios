@@ -262,6 +262,18 @@ public final class RollaBandManager: Sendable {
         try await dependencies.heartRateObservationUseCase.stopObservingHeartRate(for: identifier)
     }
 
+    public func observeActivityEndedByBand(
+        identifier: String
+    ) async throws -> AsyncStream<RollaBandActivityEndMarker> {
+        try await dependencies.activityEndObservationUseCase.observeActivityEndedByBand(for: identifier)
+    }
+
+    public func stopObservingActivityEnd(
+        identifier: String
+    ) async throws {
+        try await dependencies.activityEndObservationUseCase.stopObservingActivityEnd(for: identifier)
+    }
+
     public func observeRunningMetrics(
         identifier: String
     ) async throws -> AsyncStream<RunningSpeedCadenceData> {
