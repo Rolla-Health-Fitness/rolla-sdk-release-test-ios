@@ -60,7 +60,13 @@ public protocol RollaDelegate: AnyObject {
     /// Distinct from ``rollaDidCompleteSync(_:result:)``, which fires only for
     /// host-initiated headless ``Rolla/syncHealthData(includeSamples:completion:)``
     /// calls — the payload type is shared so a host reads one result shape for
-    /// both directions. ``RollaSyncResult/syncedData`` is `nil` on UI syncs.
+    /// both directions. On a successful band / Apple Health / Health Connect
+    /// UI sync, ``RollaSyncResult/syncedData`` carries the same per-stream
+    /// summary breakdown as the headless result (samples are never included on
+    /// UI syncs). It is `nil` when there is nothing attributable to report:
+    /// failure events, Garmin/Oura content-only refreshes, syncs that recorded
+    /// no data, and syncs that overlapped another sync (concurrent UI syncs or
+    /// a concurrent headless sync) — never wrong or double-reported data.
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance delivering the event.
