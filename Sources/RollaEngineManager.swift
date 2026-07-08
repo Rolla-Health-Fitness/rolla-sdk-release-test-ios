@@ -166,6 +166,10 @@ final class RollaEngineManager {
             args["disabledModules"] = config.disabledModules.map { $0.rawValue }
         }
 
+        if !config.disabledDataSources.isEmpty {
+            args["disabledDataSources"] = config.disabledDataSources.map { $0.rawValue }
+        }
+
         if let branding = config.branding {
             args["branding"] = branding.toDictionary()
         }

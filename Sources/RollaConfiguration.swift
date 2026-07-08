@@ -9,6 +9,7 @@ public struct RollaConfiguration {
     public let partnerId: String
     public let environment: String
     public let disabledModules: Set<RollaDisabledModule>
+    public let disabledDataSources: Set<RollaDataSource>
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
     public let removeRollaBandReferences: Bool
@@ -21,6 +22,7 @@ public struct RollaConfiguration {
         partnerId: String,
         environment: String = "rnd",
         disabledModules: Set<RollaDisabledModule> = [],
+        disabledDataSources: Set<RollaDataSource> = [],
         branding: RollaBranding? = nil,
         showSettingsButton: Bool = true,
         removeRollaBandReferences: Bool = true
@@ -32,6 +34,7 @@ public struct RollaConfiguration {
         self.partnerId = partnerId
         self.environment = environment
         self.disabledModules = disabledModules
+        self.disabledDataSources = disabledDataSources
         self.branding = branding
         self.showSettingsButton = showSettingsButton
         self.removeRollaBandReferences = removeRollaBandReferences
