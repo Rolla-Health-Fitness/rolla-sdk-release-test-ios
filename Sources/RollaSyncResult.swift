@@ -40,8 +40,8 @@ public enum RollaSyncSource: String {
 /// Why a headless sync did nothing (only set when ``RollaSyncResult/outcome``
 /// is ``RollaSyncOutcome/skipped``).
 public enum RollaSyncSkipReason: String {
-    /// The user's primary source is the band, but no band is connected/known.
-    case noBandConnected
+    /// The user's primary source is the band, but no band is paired for this account.
+    case noBandPaired
     /// A sync was already in progress, so this call was a no-op.
     case alreadyInProgress
     /// The user's primary source syncs server-side (Garmin/Oura).

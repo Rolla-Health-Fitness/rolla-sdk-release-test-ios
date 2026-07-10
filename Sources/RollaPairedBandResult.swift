@@ -10,19 +10,21 @@ import Foundation
 public enum RollaPairedBandStatus: String {
     /// A band is paired for this account — ``RollaPairedBandResult/band``
     /// describes it.
-    case paired
+    case bandPaired
     /// The user's profile confirms no band is paired.
-    case notPaired
+    case noBandPaired
     /// The pairing state could not be determined — the profile was unreachable
     /// (offline/timeout) and no local record exists (e.g. a fresh login while
     /// offline). Reported instead of guessing.
+    case undetermined
+    /// The SDK sent a status this version does not recognize (forward-compat).
     case unknown
 }
 
 /// Result of ``Rolla/getPairedBandInfo(completion:)``.
 ///
 /// ``band`` is non-nil **only** when ``status`` is
-/// ``RollaPairedBandStatus/paired``.
+/// ``RollaPairedBandStatus/bandPaired``.
 public struct RollaPairedBandResult {
     /// Whether a band is paired, or why that couldn't be determined.
     public let status: RollaPairedBandStatus
@@ -33,7 +35,7 @@ public struct RollaPairedBandResult {
 
     /// Whether a paired ``band`` is present.
     public var isPaired: Bool {
-        status == .paired && band != nil
+        status == .bandPaired && band != nil
     }
 
     /// Build from the method-channel wire map
@@ -43,6 +45,6 @@ public struct RollaPairedBandResult {
         let map = response as? [String: Any] ?? [:]
         let status = RollaPairedBandStatus(rawValue: map["status"] as? String ?? "") ?? .unknown
         let band = (map["band"] as? [String: Any]).map { RollaBandInfo.from($0) }
-        return RollaPairedBandResult(status: status, band: status == .paired ? band : nil)
+        return RollaPairedBandResult(status: status, band: status == .bandPaired ? band : nil)
     }
 }
