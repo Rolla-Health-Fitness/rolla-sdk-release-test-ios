@@ -35,7 +35,7 @@ public protocol RollaDelegate: AnyObject {
     /// - Parameters:
     ///   - rolla: The Rolla instance that ran the sync.
     ///   - result: The terminal sync result.
-    func rollaDidCompleteSync(_ rolla: Rolla, result: RollaSyncResult)
+    func rollaDidCompleteHealthDataSync(_ rolla: Rolla, result: RollaSyncResult)
 
     /// Called when an activity completed inside the SDK UI reaches a lifecycle
     /// phase: `finished` (saved in-SDK — instant), then `uploaded` (confirmed
@@ -53,11 +53,41 @@ public protocol RollaDelegate: AnyObject {
     ///   - activity: The activity payload, including its lifecycle phase.
     func rollaDidCompleteActivity(_ rolla: Rolla, activity: RollaCompletedActivity)
 
+    /// Called when a live tracking session starts running inside the SDK — a
+    /// fresh start or a crash-recovery resume
+    /// (``RollaStartedActivity/origin`` says which; key on `activityId` to
+    /// dedupe the crash-recovery re-fire). Manual activities never fire this
+    /// (they enter the lifecycle at `finished`), and pausing/resuming inside a
+    /// session fires nothing.
+    ///
+    /// Every started activity terminates in
+    /// ``rollaDidCompleteActivity(_:activity:)`` (phase `finished`) or
+    /// ``rollaDidRemoveActivity(_:activity:)`` — possibly in a **different app
+    /// session** when the app dies in between. One exception: a session
+    /// abandoned mid-tracking for over a day is cleaned up silently, without
+    /// an event.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - activity: The started activity (id, type, start time, origin).
+    func rollaDidStartActivity(_ rolla: Rolla, activity: RollaStartedActivity)
+
+    /// Called when an activity's record is removed without a kept result —
+    /// ``RollaRemovedActivity/reason`` says why: `canceled` (a crash-recovery
+    /// discard of a session that was never saved — the commonly expected
+    /// "activity canceled" case) or `deleted` (the user deleted a saved
+    /// activity from the review screen, backend-confirmed).
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - activity: The removed activity (id, reason).
+    func rollaDidRemoveActivity(_ rolla: Rolla, activity: RollaRemovedActivity)
+
     /// Called when a sync completes inside the SDK UI: the auto-sync on open,
     /// the sync on return from background while the SDK is showing, and the
     /// in-app manual refresh.
     ///
-    /// Distinct from ``rollaDidCompleteSync(_:result:)``, which fires only for
+    /// Distinct from ``rollaDidCompleteHealthDataSync(_:result:)``, which fires only for
     /// host-initiated headless ``Rolla/syncHealthData(includeSamples:completion:)``
     /// calls — the payload type is shared so a host reads one result shape for
     /// both directions. On a successful band / Apple Health / Health Connect
@@ -90,6 +120,35 @@ public protocol RollaDelegate: AnyObject {
     ///   - rolla: The Rolla instance delivering the event.
     ///   - band: The unpaired band (MAC plus last cached battery/firmware/serial).
     func rollaDidUnpairBand(_ rolla: Rolla, band: RollaBandInfo)
+
+    /// Called when the user's band establishes a live BLE link — the first
+    /// connect of an engine session and every genuine reconnect after a
+    /// reported disconnect (transitions only; BLE flap noise is filtered).
+    ///
+    /// Delivery is engine-scoped, NOT an OS proximity push: nothing fires
+    /// while the engine is cold. Link events are orthogonal to
+    /// paired/unpaired — use ``Rolla/getPairedBandInfo(completion:)`` for the
+    /// pairing state.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - band: The band (MAC plus last cached battery/firmware/serial).
+    func rollaDidConnectBand(_ rolla: Rolla, band: RollaBandInfo)
+
+    /// Called when the user's band loses its live BLE link — debounced a few
+    /// seconds so a flap (drop + immediate reconnect) reports nothing, and
+    /// arriving only after the BLE supervision timeout, i.e. seconds after
+    /// physical range loss. Not a proximity/geofencing signal.
+    ///
+    /// An unpair or logout drops the physical link too, so this event
+    /// legitimately accompanies those flows. Nothing fires while the engine is
+    /// cold — a disconnect that happens with the app terminated is never
+    /// reported retroactively.
+    ///
+    /// - Parameters:
+    ///   - rolla: The Rolla instance delivering the event.
+    ///   - band: The band (MAC plus last cached battery/firmware/serial).
+    func rollaDidDisconnectBand(_ rolla: Rolla, band: RollaBandInfo)
 
     /// Called when the SDK observes the user's primary data source change —
     /// committed inside the SDK UI, or discovered on a profile/connections
@@ -125,11 +184,15 @@ public extension RollaDelegate {
     func rollaDidFailWithError(_ rolla: Rolla, error: RollaError) {}
     func rollaDidRefreshToken(_ rolla: Rolla, token: String, refreshToken: String?, expiresIn: TimeInterval?) {}
     func rollaDidRequestTokenRefresh(_ rolla: Rolla) {}
-    func rollaDidCompleteSync(_ rolla: Rolla, result: RollaSyncResult) {}
+    func rollaDidCompleteHealthDataSync(_ rolla: Rolla, result: RollaSyncResult) {}
     func rollaDidCompleteActivity(_ rolla: Rolla, activity: RollaCompletedActivity) {}
+    func rollaDidStartActivity(_ rolla: Rolla, activity: RollaStartedActivity) {}
+    func rollaDidRemoveActivity(_ rolla: Rolla, activity: RollaRemovedActivity) {}
     func rollaDidCompleteUISync(_ rolla: Rolla, result: RollaSyncResult) {}
     func rollaDidPairBand(_ rolla: Rolla, band: RollaBandInfo) {}
     func rollaDidUnpairBand(_ rolla: Rolla, band: RollaBandInfo) {}
+    func rollaDidConnectBand(_ rolla: Rolla, band: RollaBandInfo) {}
+    func rollaDidDisconnectBand(_ rolla: Rolla, band: RollaBandInfo) {}
     func rollaDidChangePrimarySource(_ rolla: Rolla, change: RollaPrimarySourceChanged) {}
     func rollaDidChangeGoals(_ rolla: Rolla, change: RollaGoalsChanged) {}
     func rollaDidUpdateProfile(_ rolla: Rolla, update: RollaProfileUpdated) {}

@@ -270,6 +270,11 @@ public struct RollaSyncResult {
     public let hasNewData: Bool
     /// Which source the sync ran against.
     public let source: RollaSyncSource
+    /// When this sync started on the device. Set whenever a sync actually ran
+    /// — present on `.success` and `.failure`, nil for `.skipped` (nothing
+    /// ever started). Paired with ``lastSyncAt`` it gives the sync duration
+    /// without correlating events.
+    public let startedAt: Date?
     /// When this sync completed on the device. Present only on a successful
     /// sync (nil for `.skipped` / `.failure`). A client-side completion time,
     /// consistent across every source — suitable for a "Last synced at …"
@@ -292,6 +297,7 @@ public struct RollaSyncResult {
         outcome: RollaSyncOutcome,
         hasNewData: Bool,
         source: RollaSyncSource,
+        startedAt: Date? = nil,
         lastSyncAt: Date? = nil,
         skipReason: RollaSyncSkipReason? = nil,
         error: String? = nil,
@@ -300,6 +306,7 @@ public struct RollaSyncResult {
         self.outcome = outcome
         self.hasNewData = hasNewData
         self.source = source
+        self.startedAt = startedAt
         self.lastSyncAt = lastSyncAt
         self.skipReason = skipReason
         self.error = error
@@ -335,8 +342,8 @@ public struct RollaSyncResult {
 
     /// Build a result from the method-channel wire map
     /// `{ "outcome": String, "hasNewData": Bool, "source": String,
-    ///    "lastSyncAt": String?, "skipReason": String?, "error": String?,
-    ///    "syncedData": [String: Any]? }`.
+    ///    "startedAt": String?, "lastSyncAt": String?, "skipReason": String?,
+    ///    "error": String?, "syncedData": [String: Any]? }`.
     /// Unknown enum strings map to their `.unknown` case so older host
     /// integrations keep working.
     static func from(_ response: Any?) -> RollaSyncResult {
@@ -350,6 +357,10 @@ public struct RollaSyncResult {
             RollaSyncSkipReason(rawValue: $0) ?? .unknown
         }
         let error = map["error"] as? String
+        var startedAt: Date?
+        if let raw = map["startedAt"] as? String {
+            startedAt = parseDate(raw)
+        }
         var lastSyncAt: Date?
         if let raw = map["lastSyncAt"] as? String {
             lastSyncAt = parseDate(raw)
@@ -359,6 +370,7 @@ public struct RollaSyncResult {
             outcome: outcome,
             hasNewData: hasNewData,
             source: source,
+            startedAt: startedAt,
             lastSyncAt: lastSyncAt,
             skipReason: skipReason,
             error: error,

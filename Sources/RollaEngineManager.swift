@@ -26,9 +26,13 @@ final class RollaEngineManager {
     // show, cleared on dismiss), these are wired for the engine's lifetime by
     // Rolla.wireHostEventCallbacks() and cleared only in destroy().
     var onActivityCompleted: ((RollaCompletedActivity) -> Void)?
+    var onActivityStarted: ((RollaStartedActivity) -> Void)?
+    var onActivityRemoved: ((RollaRemovedActivity) -> Void)?
     var onUiSyncCompleted: ((RollaSyncResult) -> Void)?
     var onBandPaired: ((RollaBandInfo) -> Void)?
     var onBandUnpaired: ((RollaBandInfo) -> Void)?
+    var onBandConnected: ((RollaBandInfo) -> Void)?
+    var onBandDisconnected: ((RollaBandInfo) -> Void)?
     var onPrimarySourceChanged: ((RollaPrimarySourceChanged) -> Void)?
     var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
     var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
@@ -104,6 +108,14 @@ final class RollaEngineManager {
             onActivityCompleted?(RollaCompletedActivity.from(call.arguments))
             result(nil)
 
+        case "onActivityStarted":
+            onActivityStarted?(RollaStartedActivity.from(call.arguments))
+            result(nil)
+
+        case "onActivityRemoved":
+            onActivityRemoved?(RollaRemovedActivity.from(call.arguments))
+            result(nil)
+
         case "onUiSyncCompleted":
             onUiSyncCompleted?(RollaSyncResult.from(call.arguments))
             result(nil)
@@ -114,6 +126,14 @@ final class RollaEngineManager {
 
         case "onBandUnpaired":
             onBandUnpaired?(RollaBandInfo.from(call.arguments))
+            result(nil)
+
+        case "onBandConnected":
+            onBandConnected?(RollaBandInfo.from(call.arguments))
+            result(nil)
+
+        case "onBandDisconnected":
+            onBandDisconnected?(RollaBandInfo.from(call.arguments))
             result(nil)
 
         case "onPrimarySourceChanged":
@@ -263,6 +283,29 @@ final class RollaEngineManager {
         }
     }
 
+    /// Query the account's paired band over the method channel.
+    ///
+    /// Resolves to a typed ``RollaPairedBandResult`` with zero Bluetooth
+    /// involvement. Paired, not-paired, and unknown outcomes are all encoded in
+    /// the result; `.failure` is reserved for transport problems, such as the
+    /// engine not being started.
+    func getPairedBandInfo(completion: @escaping (Result<RollaPairedBandResult, RollaError>) -> Void) {
+        guard let channel = methodChannel else {
+            completion(.failure(.engineFailedToStart))
+            return
+        }
+
+        channel.invokeMethod("getPairedBandInfo", arguments: nil) { response in
+            DispatchQueue.main.async {
+                if let error = response as? FlutterError {
+                    completion(.failure(.flutterError(code: error.code, message: error.message ?? "Paired-band query failed")))
+                } else {
+                    completion(.success(RollaPairedBandResult.from(response)))
+                }
+            }
+        }
+    }
+
     /// Run a headless sync over the method channel.
     ///
     /// Resolves to a typed ``RollaSyncResult``. Success, skipped, and failure
@@ -317,9 +360,13 @@ final class RollaEngineManager {
         onTokenRefreshed = nil
         onTokenExpired = nil
         onActivityCompleted = nil
+        onActivityStarted = nil
+        onActivityRemoved = nil
         onUiSyncCompleted = nil
         onBandPaired = nil
         onBandUnpaired = nil
+        onBandConnected = nil
+        onBandDisconnected = nil
         onPrimarySourceChanged = nil
         onGoalsChanged = nil
         onProfileUpdated = nil

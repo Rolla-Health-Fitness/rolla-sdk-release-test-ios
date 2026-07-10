@@ -95,8 +95,8 @@ public final class Rolla {
     /// any UI.
     ///
     /// This is an optional performance optimization. ``show(from:)``,
-    /// ``getBandBatteryLevel(completion:)``, and
-    /// ``syncHealthData(includeSamples:completion:)`` all start the engine
+    /// ``getBandBatteryLevel(completion:)``, ``getPairedBandInfo(completion:)``,
+    /// and ``syncHealthData(includeSamples:completion:)`` all start the engine
     /// themselves on first use, so none of them require a prior warm-up — calling
     /// this simply moves that one-time start-up cost off the first call. A common
     /// pattern is to warm up right after login so the first ``show(from:)``
@@ -167,6 +167,55 @@ public final class Rolla {
         }
     }
 
+    /// Answer "does this account currently have a Rolla band paired?" —
+    /// with **zero Bluetooth**: no scan, no connect, no BLE permission; works
+    /// with Bluetooth off.
+    ///
+    /// Works on its own: the engine starts automatically on first use (no UI is
+    /// shown), so a prior ``warmUpEngine(completion:)`` or ``show(from:)`` is
+    /// not required. Warming up first only removes the one-time start-up
+    /// latency from this call.
+    ///
+    /// The result is always a typed ``RollaPairedBandResult``: `.paired` with
+    /// the band's MAC address (authoritative) plus best-effort cached
+    /// battery/firmware/serial values, `.notPaired` when the user's profile
+    /// confirms no band, or `.unknown` when the state could not be determined
+    /// (offline with no local record) — never a guess. `.failure` is reserved
+    /// for transport problems, such as the engine failing to start.
+    ///
+    /// The lookup is network-first on purpose — the profile is the
+    /// authoritative pairing record, so a band unpaired remotely from another
+    /// device (which fires no event by design) is reported correctly; a local
+    /// record only answers when the network can't.
+    ///
+    /// This is a pairing-state query, not a link-state one: live connect/
+    /// disconnect transitions are reported by
+    /// ``RollaDelegate/rollaDidConnectBand(_:band:)`` /
+    /// ``RollaDelegate/rollaDidDisconnectBand(_:band:)`` instead.
+    ///
+    /// - Parameter completion: Delivers the paired-band result on the main thread.
+    public func getPairedBandInfo(completion: @escaping (Result<RollaPairedBandResult, RollaError>) -> Void) {
+        DispatchQueue.main.async {
+            // Headless query: don't wire presentation callbacks (see warmUpEngine).
+            // Host-event callbacks ARE wired — they're engine-scoped.
+            self.wireHostEventCallbacks()
+            //
+            // Capture `self` STRONGLY through the configure round-trip — same
+            // reasoning as getBandBatteryLevel(completion:). A `[weak self]`
+            // here would silently drop `completion` if the caller holds the
+            // Rolla instance only for the duration of this call, hanging an
+            // `await` forever and defeating the always-returns contract.
+            self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
+                switch configureResult {
+                case .success:
+                    self.engineManager.getPairedBandInfo(completion: completion)
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     /// Run a full sync of the connected source's health data, WITHOUT showing
     /// any UI.
     ///
@@ -184,7 +233,7 @@ public final class Rolla {
     /// problems, such as the engine failing to start.
     ///
     /// The same result is also delivered to
-    /// ``RollaDelegate/rollaDidCompleteSync(_:result:)`` once a sync reaches a
+    /// ``RollaDelegate/rollaDidCompleteHealthDataSync(_:result:)`` once a sync reaches a
     /// terminal outcome (the channel round-trip succeeded).
     ///
     /// On success, ``RollaSyncResult/syncedData`` describes what was uploaded. A
@@ -217,7 +266,7 @@ public final class Rolla {
                 case .success:
                     self.engineManager.syncHealthData(includeSamples: includeSamples) { result in
                         if case .success(let syncResult) = result {
-                            self.delegate?.rollaDidCompleteSync(self, result: syncResult)
+                            self.delegate?.rollaDidCompleteHealthDataSync(self, result: syncResult)
                         }
                         completion(result)
                     }
@@ -309,6 +358,14 @@ public final class Rolla {
             self.delegate?.rollaDidCompleteActivity(self, activity: activity)
         }
 
+        engineManager.onActivityStarted = { activity in
+            self.delegate?.rollaDidStartActivity(self, activity: activity)
+        }
+
+        engineManager.onActivityRemoved = { activity in
+            self.delegate?.rollaDidRemoveActivity(self, activity: activity)
+        }
+
         engineManager.onUiSyncCompleted = { result in
             self.delegate?.rollaDidCompleteUISync(self, result: result)
         }
@@ -319,6 +376,14 @@ public final class Rolla {
 
         engineManager.onBandUnpaired = { band in
             self.delegate?.rollaDidUnpairBand(self, band: band)
+        }
+
+        engineManager.onBandConnected = { band in
+            self.delegate?.rollaDidConnectBand(self, band: band)
+        }
+
+        engineManager.onBandDisconnected = { band in
+            self.delegate?.rollaDidDisconnectBand(self, band: band)
         }
 
         engineManager.onPrimarySourceChanged = { change in
