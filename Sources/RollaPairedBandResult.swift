@@ -15,9 +15,8 @@ public enum RollaPairedBandStatus: String {
     case noBandPaired
     /// The pairing state could not be determined — the profile was unreachable
     /// (offline/timeout) and no local record exists (e.g. a fresh login while
-    /// offline). Reported instead of guessing.
-    case undetermined
-    /// The SDK sent a status this version does not recognize (forward-compat).
+    /// offline) — or the SDK sent a status this wrapper version does not
+    /// recognize (forward-compat). Either way: no answer, not a guess.
     case unknown
 }
 

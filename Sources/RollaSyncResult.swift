@@ -42,6 +42,12 @@ public enum RollaSyncSource: String {
 public enum RollaSyncSkipReason: String {
     /// The user's primary source is the band, but no band is paired for this account.
     case noBandPaired
+    /// A band is paired, but it could not be reached right now — powered off,
+    /// out of range, or the connect attempt ran out of time. The band-battery
+    /// API reports the same fact as ``RollaBatteryStatus/bandNotConnected``
+    /// (identical raw value). Distinct from ``noBandPaired`` (no band on the
+    /// account at all).
+    case bandNotConnected
     /// A sync was already in progress, so this call was a no-op.
     case alreadyInProgress
     /// The user's primary source syncs server-side (Garmin/Oura).

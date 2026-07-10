@@ -11,10 +11,11 @@ public enum RollaBatteryStatus: String {
     case available
     /// The user has no Rolla band paired.
     case noBandPaired
-    /// A Rolla band is known but could not be reached (off / out of range).
-    case disconnected
-    /// Connecting to / reading from the band did not complete in time.
-    case timeout
+    /// A band is paired, but it could not be reached right now — powered off,
+    /// out of range, or the connect/read attempt ran out of time. The sync API
+    /// reports the same fact as ``RollaSyncSkipReason/bandNotConnected``
+    /// (identical raw value).
+    case bandNotConnected
     /// The connected device is not a Rolla band. The current battery read never
     /// returns this — it only connects to the user's own known band — so the case
     /// exists for native/forward-compatibility.

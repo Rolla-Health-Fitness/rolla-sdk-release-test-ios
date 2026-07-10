@@ -179,7 +179,7 @@ public final class Rolla {
     /// The result is always a typed ``RollaPairedBandResult``: `.bandPaired` with
     /// the band's MAC address (authoritative) plus best-effort cached
     /// battery/firmware/serial values, `.noBandPaired` when the user's profile
-    /// confirms no band, or `.undetermined` when the state could not be determined
+    /// confirms no band, or `.unknown` when the state could not be determined
     /// (offline with no local record) — never a guess. `.failure` is reserved
     /// for transport problems, such as the engine failing to start.
     ///
@@ -227,7 +227,7 @@ public final class Rolla {
     /// up first only removes the one-time start-up latency from this call.
     ///
     /// The result is always a typed ``RollaSyncResult``. A sync that does nothing
-    /// for an expected reason — no band paired, a sync already running, a
+    /// for an expected reason — no band paired, the band not reachable, a sync already running, a
     /// server-side source, or offline — resolves as `.success` with a `.skipped`
     /// outcome, never as a thrown error. `.failure` is reserved for transport
     /// problems, such as the engine failing to start.
