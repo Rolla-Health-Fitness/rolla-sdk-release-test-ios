@@ -1,14 +1,20 @@
 import Foundation
 
-/// Payload of ``RollaDelegate/rollaDidPairBand(_:band:)`` and
-/// ``RollaDelegate/rollaDidUnpairBand(_:band:)``.
+/// A band descriptor shared by several public surfaces: the payload of the
+/// pair/unpair events (``RollaDelegate/rollaDidPairBand(_:band:)`` /
+/// ``RollaDelegate/rollaDidUnpairBand(_:band:)``) and the live-link events
+/// (``RollaDelegate/rollaDidConnectBand(_:band:)`` /
+/// ``RollaDelegate/rollaDidDisconnectBand(_:band:)``), and the
+/// ``RollaPairedBandResult/band`` returned by
+/// ``Rolla/getPairedBandInfo(completion:)``.
 ///
-/// One shared shape for both events; which fields are populated depends on the
-/// moment the event fires:
+/// One shared shape; which fields are populated depends on the moment it is
+/// produced:
 /// - **paired**: ``name``, ``macAddress``, ``deviceType``, ``rssi`` —
 ///   firmware/battery are read from the band only seconds after pairing, so
 ///   they are not part of the pairing payload.
-/// - **unpaired**: ``macAddress`` plus the last cached ``batteryPercent``,
+/// - **everywhere else** (unpaired, connected, disconnected, paired-band
+///   query): ``macAddress`` plus the last cached ``batteryPercent``,
 ///   ``firmwareVersion``, ``serialNumber``; the band name is not cached
 ///   locally, so it is absent.
 public struct RollaBandInfo {
@@ -20,11 +26,11 @@ public struct RollaBandInfo {
     public let rssi: Int?
     /// Device type reported by the BLE layer (pairing only).
     public let deviceType: String?
-    /// Last known battery percent (unpairing only, cached).
+    /// Last known battery percent (cached; absent at pairing time).
     public let batteryPercent: Int?
-    /// Last known firmware version (unpairing only, cached).
+    /// Last known firmware version (cached; absent at pairing time).
     public let firmwareVersion: String?
-    /// Last known serial number (unpairing only, cached).
+    /// Last known serial number (cached; absent at pairing time).
     public let serialNumber: String?
 
     /// Build from the method-channel wire map; a malformed payload never throws.

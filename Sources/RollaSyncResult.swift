@@ -37,8 +37,10 @@ public enum RollaSyncSource: String {
     case unknown
 }
 
-/// Why a headless sync did nothing (only set when ``RollaSyncResult/outcome``
-/// is ``RollaSyncOutcome/skipped``).
+/// Why a sync did nothing (only set when ``RollaSyncResult/outcome`` is
+/// ``RollaSyncOutcome/skipped``). Carried by the headless sync result and by
+/// ``RollaDelegate/rollaDidCompleteUISync(_:result:)`` (a paired band that
+/// can't be reached maps to ``bandNotConnected`` on both).
 public enum RollaSyncSkipReason: String {
     /// The user's primary source is the band, but no band is paired for this account.
     case noBandPaired
@@ -276,10 +278,11 @@ public struct RollaSyncResult {
     public let hasNewData: Bool
     /// Which source the sync ran against.
     public let source: RollaSyncSource
-    /// When this sync started on the device. Set whenever a sync actually ran
-    /// — present on `.success` and `.failure`, nil for `.skipped` (nothing
-    /// ever started). Paired with ``lastSyncAt`` it gives the sync duration
-    /// without correlating events.
+    /// When this sync started on the device, when known. Present on
+    /// `.success` and `.failure` for a normal run; always nil for `.skipped`
+    /// (nothing ever started), and nil on the results of overlapping sync
+    /// attempts, which report no stamp rather than a wrong one. Paired with
+    /// ``lastSyncAt`` it gives the sync duration without correlating events.
     public let startedAt: Date?
     /// When this sync completed on the device. Present only on a successful
     /// sync (nil for `.skipped` / `.failure`). A client-side completion time,

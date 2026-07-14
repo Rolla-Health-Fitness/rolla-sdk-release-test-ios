@@ -63,9 +63,10 @@ public protocol RollaDelegate: AnyObject {
     /// Every started activity terminates in
     /// ``rollaDidCompleteActivity(_:activity:)`` (phase `finished`) or
     /// ``rollaDidRemoveActivity(_:activity:)`` — possibly in a **different app
-    /// session** when the app dies in between. One exception: a session
-    /// abandoned mid-tracking for over a day is cleaned up silently, without
-    /// an event.
+    /// session** when the app dies in between. Two exceptions are cleaned up
+    /// silently, without an event: a session abandoned mid-tracking for over
+    /// a day, and an interrupted session neither resumed nor discarded before
+    /// the user starts their next activity.
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance delivering the event.
@@ -94,9 +95,10 @@ public protocol RollaDelegate: AnyObject {
     /// UI sync, ``RollaSyncResult/syncedData`` carries the same per-stream
     /// summary breakdown as the headless result (samples are never included on
     /// UI syncs). It is `nil` when there is nothing attributable to report:
-    /// failure events, Garmin/Oura content-only refreshes, syncs that recorded
-    /// no data, and syncs that overlapped another sync (concurrent UI syncs or
-    /// a concurrent headless sync) — never wrong or double-reported data.
+    /// failure and skipped events, Garmin/Oura content-only refreshes, syncs
+    /// that recorded no data, and syncs that overlapped another sync
+    /// (concurrent UI syncs or a concurrent headless sync) — never wrong or
+    /// double-reported data.
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance delivering the event.

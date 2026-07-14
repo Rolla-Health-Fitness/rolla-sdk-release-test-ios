@@ -132,15 +132,15 @@ public final class Rolla {
     /// band paired and reachable for a value to come back.
     ///
     /// Works on its own: the engine starts automatically on first use (no UI is
-    /// shown), so a prior ``warmUpEngine(completion:)`` or ``show(from:)`` is not
-    /// required. Warming up first only removes the one-time start-up latency from
-    /// this call.
+    /// shown) — a prior ``warmUpEngine(completion:)`` or ``show(from:)`` only
+    /// removes the one-time start-up latency.
     ///
     /// The result is always a typed ``RollaBatteryResult``. Cases where no live
-    /// value is available (no band paired, disconnected, timed out, Bluetooth
-    /// off) resolve as `.success` with a non-`.available` status, never as a
-    /// thrown error and never as a stale value reported as live. `.failure` is
-    /// reserved for transport problems, such as the engine failing to start.
+    /// value is available (no band paired, band not reachable, not a Rolla band,
+    /// Bluetooth off or missing permission) resolve as `.success` with a
+    /// non-`.available` status, never as a thrown error and never as a stale
+    /// value reported as live. `.failure` is reserved for transport problems,
+    /// such as the engine failing to start.
     ///
     /// - Parameter completion: Delivers the battery result on the main thread.
     public func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
@@ -172,9 +172,8 @@ public final class Rolla {
     /// with Bluetooth off.
     ///
     /// Works on its own: the engine starts automatically on first use (no UI is
-    /// shown), so a prior ``warmUpEngine(completion:)`` or ``show(from:)`` is
-    /// not required. Warming up first only removes the one-time start-up
-    /// latency from this call.
+    /// shown) — a prior ``warmUpEngine(completion:)`` or ``show(from:)`` only
+    /// removes the one-time start-up latency.
     ///
     /// The result is always a typed ``RollaPairedBandResult``: `.bandPaired` with
     /// the band's MAC address (authoritative) plus best-effort cached
@@ -200,11 +199,10 @@ public final class Rolla {
             // Host-event callbacks ARE wired — they're engine-scoped.
             self.wireHostEventCallbacks()
             //
-            // Capture `self` STRONGLY through the configure round-trip — same
-            // reasoning as getBandBatteryLevel(completion:). A `[weak self]`
-            // here would silently drop `completion` if the caller holds the
-            // Rolla instance only for the duration of this call, hanging an
-            // `await` forever and defeating the always-returns contract.
+            // Capture `self` STRONGLY through the configure round-trip — a
+            // `[weak self]` would silently drop `completion` and defeat the
+            // always-returns contract. Full reasoning at
+            // getBandBatteryLevel(completion:).
             self.engineManager.ensureConfigured(with: self.configuration) { configureResult in
                 switch configureResult {
                 case .success:
@@ -216,25 +214,22 @@ public final class Rolla {
         }
     }
 
-    /// Run a full sync of the connected source's health data, WITHOUT showing
-    /// any UI.
+    /// Run a full sync of the user's primary health data source and upload
+    /// anything new, WITHOUT showing any UI.
     ///
-    /// This connects the user's primary data source and uploads anything new,
-    /// headlessly.
-    ///
-    /// Works on its own: the engine starts automatically on first use, so a prior
-    /// ``warmUpEngine(completion:)`` or ``show(from:)`` is not required. Warming
-    /// up first only removes the one-time start-up latency from this call.
+    /// Works on its own: the engine starts automatically on first use — a prior
+    /// ``warmUpEngine(completion:)`` or ``show(from:)`` only removes the
+    /// one-time start-up latency.
     ///
     /// The result is always a typed ``RollaSyncResult``. A sync that does nothing
-    /// for an expected reason — no band paired, the band not reachable, a sync already running, a
-    /// server-side source, or offline — resolves as `.success` with a `.skipped`
-    /// outcome, never as a thrown error. `.failure` is reserved for transport
-    /// problems, such as the engine failing to start.
+    /// for an expected reason — no band paired, the band not reachable, a sync
+    /// already running, a server-side source, or offline — resolves as `.success`
+    /// with a `.skipped` outcome, never as a thrown error. `.failure` is reserved
+    /// for transport problems, such as the engine failing to start.
     ///
     /// The same result is also delivered to
-    /// ``RollaDelegate/rollaDidCompleteHealthDataSync(_:result:)`` once a sync reaches a
-    /// terminal outcome (the channel round-trip succeeded).
+    /// ``RollaDelegate/rollaDidCompleteHealthDataSync(_:result:)`` once a sync
+    /// reaches a terminal outcome (the channel round-trip succeeded).
     ///
     /// On success, ``RollaSyncResult/syncedData`` describes what was uploaded. A
     /// per-stream summary is always included; pass `includeSamples` `true` to

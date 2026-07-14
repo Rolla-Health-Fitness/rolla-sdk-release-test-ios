@@ -22,9 +22,10 @@ public enum RollaActivityRemovalReason: String {
 /// Fires when an activity's record is gone without a kept result — the method
 /// names the effect (record removed), ``reason`` names the cause. Together
 /// with the started/completed events this closes the lifecycle: every started
-/// activity terminates in a `finished` completion or a removal, except
-/// sessions abandoned mid-tracking for over a day, which are cleaned up
-/// silently.
+/// activity terminates in a `finished` completion or a removal, except two
+/// silent cleanups: sessions abandoned mid-tracking for over a day, and
+/// interrupted sessions neither resumed nor discarded before the user starts
+/// their next activity.
 public struct RollaRemovedActivity {
     public let activityId: String
     public let reason: RollaActivityRemovalReason

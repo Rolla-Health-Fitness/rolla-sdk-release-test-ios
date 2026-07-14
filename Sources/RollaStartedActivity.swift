@@ -22,8 +22,10 @@ public enum RollaActivityStartOrigin: String {
 /// `finished`), and pausing/resuming inside a session fires nothing. Every
 /// started activity terminates in an activity-completed `finished` or an
 /// activity-removed event; the two can arrive in **different app sessions**
-/// when the app dies in between. One exception: a session abandoned
-/// mid-tracking for over a day is cleaned up silently, without an event.
+/// when the app dies in between. Two exceptions are cleaned up silently,
+/// without an event: a session abandoned mid-tracking for over a day, and an
+/// interrupted session neither resumed nor discarded before the user starts
+/// their next activity.
 public struct RollaStartedActivity {
     public let activityId: String
     /// Base activity type (e.g. `walk`, `run`, `cycling`, `cardio`).
