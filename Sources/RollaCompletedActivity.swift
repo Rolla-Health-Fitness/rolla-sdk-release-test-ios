@@ -54,8 +54,7 @@ public struct RollaCompletedActivity {
     public let endTime: Date?
 
     /// Build from the method-channel wire map. Unknown enum strings map to
-    /// their `.unknown` case so older host integrations keep working; a
-    /// malformed payload never throws.
+    /// their `.unknown` case.
     static func from(_ arguments: Any?) -> RollaCompletedActivity {
         let map = arguments as? [String: Any] ?? [:]
         return RollaCompletedActivity(

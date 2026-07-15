@@ -26,7 +26,7 @@ public struct RollaGoalsChanged {
     public let changedGoals: [RollaGoalInfo]
     public let enabledGoals: [RollaGoalInfo]
 
-    /// Build from the method-channel wire map; a malformed payload never throws.
+    /// Build from the method-channel wire map.
     static func from(_ arguments: Any?) -> RollaGoalsChanged {
         let map = arguments as? [String: Any] ?? [:]
         let changed = (map["changedGoals"] as? [[String: Any]] ?? []).map(RollaGoalInfo.from)

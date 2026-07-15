@@ -176,11 +176,13 @@ public final class Rolla {
     /// removes the one-time start-up latency.
     ///
     /// The result is always a typed ``RollaPairedBandResult``: `.bandPaired` with
-    /// the band's MAC address (authoritative) plus best-effort cached
-    /// battery/firmware/serial values, `.noBandPaired` when the user's profile
-    /// confirms no band, or `.unknown` when the state could not be determined
-    /// (offline with no local record) — never a guess. `.failure` is reserved
-    /// for transport problems, such as the engine failing to start.
+    /// the band's MAC address (always present) plus the last cached
+    /// battery/firmware/serial — each may be nil if the SDK hasn't read the band
+    /// recently (for a live battery value use
+    /// ``getBandBatteryLevel(completion:)``), `.noBandPaired` when the user's
+    /// profile confirms no band, or `.unknown` when the state could not be
+    /// determined (offline with no local record) — never a guess. `.failure` is
+    /// reserved for transport problems, such as the engine failing to start.
     ///
     /// The lookup is network-first on purpose — the profile is the
     /// authoritative pairing record, so a band unpaired remotely from another
@@ -229,7 +231,7 @@ public final class Rolla {
     ///
     /// The same result is also delivered to
     /// ``RollaDelegate/rollaDidCompleteHealthDataSync(_:result:)`` once a sync
-    /// reaches a terminal outcome (the channel round-trip succeeded).
+    /// reaches a terminal outcome.
     ///
     /// On success, ``RollaSyncResult/syncedData`` describes what was uploaded. A
     /// per-stream summary is always included; pass `includeSamples` `true` to

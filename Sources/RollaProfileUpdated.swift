@@ -18,7 +18,7 @@ import Foundation
 public struct RollaProfileUpdated {
     public let changedFields: [String: Any]
 
-    /// Build from the method-channel wire map; a malformed payload never throws.
+    /// Build from the method-channel wire map.
     static func from(_ arguments: Any?) -> RollaProfileUpdated {
         let map = arguments as? [String: Any] ?? [:]
         return RollaProfileUpdated(changedFields: map["changedFields"] as? [String: Any] ?? [:])

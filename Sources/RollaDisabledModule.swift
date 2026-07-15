@@ -7,4 +7,5 @@ import Foundation
 public enum RollaDisabledModule: String {
     case weight
     case bloodPressure
+    case leaderboards
 }

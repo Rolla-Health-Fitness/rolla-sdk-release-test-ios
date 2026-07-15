@@ -33,7 +33,7 @@ public struct RollaBandInfo {
     /// Last known serial number (cached; absent at pairing time).
     public let serialNumber: String?
 
-    /// Build from the method-channel wire map; a malformed payload never throws.
+    /// Build from the method-channel wire map.
     static func from(_ arguments: Any?) -> RollaBandInfo {
         let map = arguments as? [String: Any] ?? [:]
         return RollaBandInfo(

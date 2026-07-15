@@ -31,8 +31,7 @@ public struct RollaRemovedActivity {
     public let reason: RollaActivityRemovalReason
 
     /// Build from the method-channel wire map. Unknown reason strings map to
-    /// `.unknown` so older host integrations keep working; a malformed payload
-    /// never throws.
+    /// `.unknown`.
     static func from(_ arguments: Any?) -> RollaRemovedActivity {
         let map = arguments as? [String: Any] ?? [:]
         return RollaRemovedActivity(

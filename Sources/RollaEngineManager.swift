@@ -190,6 +190,10 @@ final class RollaEngineManager {
             args["disabledDataSources"] = config.disabledDataSources.map { $0.rawValue }
         }
 
+        if let language = config.language {
+            args["language"] = language.rawValue
+        }
+
         if let branding = config.branding {
             args["branding"] = branding.toDictionary()
         }

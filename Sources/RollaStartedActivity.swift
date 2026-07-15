@@ -5,10 +5,10 @@ import Foundation
 public enum RollaActivityStartOrigin: String {
     /// A brand-new live-tracked session the user just started.
     case fresh
-    /// A session restored after the app terminated mid-activity (crash, kill).
-    /// The started event re-fires with this origin so a host whose in-memory
-    /// state died with the app can re-sync; key on `activityId` to dedupe it
-    /// against the original `fresh` event.
+    /// A session restored after the app terminated mid-activity (crash or
+    /// kill). The started event fires again with this origin because the host
+    /// may have lost the original `fresh` event along with the app; two
+    /// started events carrying the same `activityId` are the same activity.
     case crashRecovery
     /// The SDK sent an origin this version does not recognize (forward-compat).
     case unknown
@@ -35,8 +35,7 @@ public struct RollaStartedActivity {
     public let catalogId: String?
 
     /// Build from the method-channel wire map. Unknown enum strings map to
-    /// `.unknown` so older host integrations keep working; a malformed payload
-    /// never throws.
+    /// `.unknown`.
     static func from(_ arguments: Any?) -> RollaStartedActivity {
         let map = arguments as? [String: Any] ?? [:]
         return RollaStartedActivity(

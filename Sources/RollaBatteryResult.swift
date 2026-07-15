@@ -3,9 +3,8 @@ import Foundation
 /// Why a band-battery read did or didn't yield a live value.
 ///
 /// Battery is a live BLE read from a **Rolla band**. A value is only present
-/// when ``available`` — every other case is a typed "unavailable" reason so the
-/// host app can present the right UI without crashing or treating a stale value
-/// as live.
+/// when ``available`` — every other case is a typed "unavailable" reason the
+/// host can branch on.
 public enum RollaBatteryStatus: String {
     /// A fresh live battery level was read. ``RollaBatteryResult/level`` holds it.
     case available
@@ -55,7 +54,7 @@ public struct RollaBatteryResult {
 
     /// Build a result from the method-channel wire map
     /// `{ "status": String, "level": Int? }`. Unknown statuses map to
-    /// ``RollaBatteryStatus/unknown`` so older host integrations keep working.
+    /// ``RollaBatteryStatus/unknown``.
     static func from(_ response: Any?) -> RollaBatteryResult {
         guard let map = response as? [String: Any],
               let raw = map["status"] as? String else {

@@ -246,8 +246,7 @@ public struct RollaSyncedHealthData {
     /// Raw samples, non-nil only when `includeSamples: true` was requested.
     public let samples: RollaSyncedSamples?
 
-    /// Build from the `syncedData` wire sub-map. Returns nil when absent so
-    /// older host integrations keep working.
+    /// Build from the `syncedData` wire sub-map. Returns nil when absent.
     static func from(_ response: Any?) -> RollaSyncedHealthData? {
         guard let map = response as? [String: Any] else { return nil }
         return RollaSyncedHealthData(
@@ -278,11 +277,11 @@ public struct RollaSyncResult {
     public let hasNewData: Bool
     /// Which source the sync ran against.
     public let source: RollaSyncSource
-    /// When this sync started on the device, when known. Present on
-    /// `.success` and `.failure` for a normal run; always nil for `.skipped`
-    /// (nothing ever started), and nil on the results of overlapping sync
-    /// attempts, which report no stamp rather than a wrong one. Paired with
-    /// ``lastSyncAt`` it gives the sync duration without correlating events.
+    /// The device-clock time this sync began running. Set on `.success` and
+    /// `.failure`, with two nil cases: `.skipped` results (nothing ran), and
+    /// the results of overlapping syncs, where the SDK reports no start time
+    /// rather than a possibly wrong one. Subtract it from ``lastSyncAt`` to
+    /// get the sync's duration.
     public let startedAt: Date?
     /// When this sync completed on the device. Present only on a successful
     /// sync (nil for `.skipped` / `.failure`). A client-side completion time,
@@ -353,8 +352,7 @@ public struct RollaSyncResult {
     /// `{ "outcome": String, "hasNewData": Bool, "source": String,
     ///    "startedAt": String?, "lastSyncAt": String?, "skipReason": String?,
     ///    "error": String?, "syncedData": [String: Any]? }`.
-    /// Unknown enum strings map to their `.unknown` case so older host
-    /// integrations keep working.
+    /// Unknown enum strings map to their `.unknown` case.
     static func from(_ response: Any?) -> RollaSyncResult {
         guard let map = response as? [String: Any] else {
             return RollaSyncResult(outcome: .unknown, hasNewData: false, source: .unknown)

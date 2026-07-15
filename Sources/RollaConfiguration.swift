@@ -10,6 +10,10 @@ public struct RollaConfiguration {
     public let environment: String
     public let disabledModules: Set<RollaDisabledModule>
     public let disabledDataSources: Set<RollaDataSource>
+    /// SDK UI language. When set, it is authoritative for the Flutter engine's
+    /// lifetime and replaces persisted picks and the user's backend profile
+    /// language. nil keeps the profile-driven behavior.
+    public let language: RollaLanguage?
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
     public let removeRollaBandReferences: Bool
@@ -23,6 +27,7 @@ public struct RollaConfiguration {
         environment: String = "rnd",
         disabledModules: Set<RollaDisabledModule> = [],
         disabledDataSources: Set<RollaDataSource> = [],
+        language: RollaLanguage? = nil,
         branding: RollaBranding? = nil,
         showSettingsButton: Bool = true,
         removeRollaBandReferences: Bool = true
@@ -35,6 +40,7 @@ public struct RollaConfiguration {
         self.environment = environment
         self.disabledModules = disabledModules
         self.disabledDataSources = disabledDataSources
+        self.language = language
         self.branding = branding
         self.showSettingsButton = showSettingsButton
         self.removeRollaBandReferences = removeRollaBandReferences

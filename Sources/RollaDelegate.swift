@@ -124,8 +124,10 @@ public protocol RollaDelegate: AnyObject {
     func rollaDidUnpairBand(_ rolla: Rolla, band: RollaBandInfo)
 
     /// Called when the user's band establishes a live BLE link — the first
-    /// connect of an engine session and every genuine reconnect after a
-    /// reported disconnect (transitions only; BLE flap noise is filtered).
+    /// connect of an engine session and every reconnect after a reported
+    /// disconnect. Repeated "connected" updates fire it once, and a momentary
+    /// drop that recovers inside the disconnect debounce fires nothing on
+    /// either method.
     ///
     /// Delivery is engine-scoped, NOT an OS proximity push: nothing fires
     /// while the engine is cold. Link events are orthogonal to
@@ -138,9 +140,9 @@ public protocol RollaDelegate: AnyObject {
     func rollaDidConnectBand(_ rolla: Rolla, band: RollaBandInfo)
 
     /// Called when the user's band loses its live BLE link — debounced a few
-    /// seconds so a flap (drop + immediate reconnect) reports nothing, and
-    /// arriving only after the BLE supervision timeout, i.e. seconds after
-    /// physical range loss. Not a proximity/geofencing signal.
+    /// seconds so a momentary drop with an immediate reconnect reports
+    /// nothing, and arriving only after the BLE supervision timeout, i.e.
+    /// seconds after physical range loss. Not a proximity/geofencing signal.
     ///
     /// An unpair or logout drops the physical link too, so this event
     /// legitimately accompanies those flows. Nothing fires while the engine is

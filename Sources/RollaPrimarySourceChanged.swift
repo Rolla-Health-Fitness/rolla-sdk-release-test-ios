@@ -14,7 +14,7 @@ public struct RollaPrimarySourceChanged {
     public let currentSource: RollaSyncSource
 
     /// Build from the method-channel wire map. Unknown enum strings map to
-    /// `.unknown` so older host integrations keep working.
+    /// `.unknown`.
     static func from(_ arguments: Any?) -> RollaPrimarySourceChanged {
         let map = arguments as? [String: Any] ?? [:]
         return RollaPrimarySourceChanged(

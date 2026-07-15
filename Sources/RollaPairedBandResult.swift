@@ -27,9 +27,10 @@ public enum RollaPairedBandStatus: String {
 public struct RollaPairedBandResult {
     /// Whether a band is paired, or why that couldn't be determined.
     public let status: RollaPairedBandStatus
-    /// The paired band. The MAC address is authoritative; every other field is
-    /// a best-effort cached value from the last time the SDK talked to the
-    /// band (and may be nil).
+    /// The paired band. The MAC address is always present;
+    /// battery/firmware/serial are the last cached values and may be nil if the
+    /// SDK hasn't read the band recently — use
+    /// ``Rolla/getBandBatteryLevel(completion:)`` for a live battery value.
     public let band: RollaBandInfo?
 
     /// Whether a paired ``band`` is present.
@@ -39,7 +40,7 @@ public struct RollaPairedBandResult {
 
     /// Build from the method-channel wire map
     /// `{ "status": String, "band": [String: Any]? }`. Unknown status strings
-    /// map to `.unknown`; a malformed payload never throws.
+    /// map to `.unknown`.
     static func from(_ response: Any?) -> RollaPairedBandResult {
         let map = response as? [String: Any] ?? [:]
         let status = RollaPairedBandStatus(rawValue: map["status"] as? String ?? "") ?? .unknown
