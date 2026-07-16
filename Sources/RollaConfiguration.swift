@@ -16,7 +16,6 @@ public struct RollaConfiguration {
     public let language: RollaLanguage?
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
-    public let removeRollaBandReferences: Bool
 
     public init(
         token: String,
@@ -29,8 +28,7 @@ public struct RollaConfiguration {
         disabledDataSources: Set<RollaDataSource> = [],
         language: RollaLanguage? = nil,
         branding: RollaBranding? = nil,
-        showSettingsButton: Bool = true,
-        removeRollaBandReferences: Bool = true
+        showSettingsButton: Bool = true
     ) {
         self.token = token
         self.refreshToken = refreshToken
@@ -43,7 +41,6 @@ public struct RollaConfiguration {
         self.language = language
         self.branding = branding
         self.showSettingsButton = showSettingsButton
-        self.removeRollaBandReferences = removeRollaBandReferences
     }
 }
 
@@ -63,19 +60,25 @@ public struct RollaBranding {
     public let headerLogoAsset: String?
     /// Privacy policy URL linked from the consent screen.
     public let privacyUrl: String?
+    /// Whether the SDK UI uses generic "fitness device" wording (true) or
+    /// Rolla Band-specific naming, imagery, and copy (false). Unset keeps
+    /// the SDK default: generic wording.
+    public let removeRollaBandReferences: Bool?
 
     public init(
         hostAppName: String? = nil,
         primaryColor: UIColor? = nil,
         defaultThemeMode: RollaThemeMode? = nil,
         headerLogoAsset: String? = nil,
-        privacyUrl: String? = nil
+        privacyUrl: String? = nil,
+        removeRollaBandReferences: Bool? = nil
     ) {
         self.hostAppName = hostAppName
         self.primaryColor = primaryColor
         self.defaultThemeMode = defaultThemeMode
         self.headerLogoAsset = headerLogoAsset
         self.privacyUrl = privacyUrl
+        self.removeRollaBandReferences = removeRollaBandReferences
     }
 
     func toDictionary() -> [String: Any] {
@@ -95,6 +98,9 @@ public struct RollaBranding {
         }
         if let privacy = privacyUrl {
             dict["privacyUrl"] = privacy
+        }
+        if let removeRollaBandReferences = removeRollaBandReferences {
+            dict["removeRollaBandReferences"] = removeRollaBandReferences
         }
 
         return dict
