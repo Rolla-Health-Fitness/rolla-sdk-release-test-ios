@@ -10,7 +10,13 @@
 
 ---
 
-## 0.1.12 [Draft]
+## 0.1.13 [Draft]
+
+> **No documented changes yet.** When adding a new changelog entry, follow the pattern from previous versions in this file and see [`docs/changelog/CHANGELOG_WORKFLOW.md`](docs/changelog/CHANGELOG_WORKFLOW.md). Delete this note when you add the first bullet.
+
+---
+
+## 0.1.12
 
 ### Both platforms
 
