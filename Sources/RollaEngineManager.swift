@@ -195,7 +195,10 @@ final class RollaEngineManager {
         }
 
         if let branding = config.branding {
-            args["branding"] = branding.toDictionary()
+            let brandingDict = branding.toDictionary()
+            if !brandingDict.isEmpty {
+                args["branding"] = brandingDict
+            }
         }
 
         channel.invokeMethod("initialize", arguments: args) { response in
