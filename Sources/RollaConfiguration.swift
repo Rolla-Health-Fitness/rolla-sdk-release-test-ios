@@ -53,8 +53,8 @@ public struct RollaBranding {
     /// Seeds the SDK's entire color scheme (buttons, navigation, inputs,
     /// charts, share cards) in both light and dark themes.
     public let primaryColor: UIColor?
-    /// Theme the SDK UI starts in until the user picks one in SDK settings.
-    public let defaultThemeMode: RollaThemeMode?
+    /// Theme the SDK UI runs in: light, dark, or following the device (system).
+    public let themeMode: RollaThemeMode?
     /// Path of a logo asset pre-bundled into the SDK by Rolla, shown in the
     /// top app bar and on activity share cards.
     public let headerLogoAsset: String?
@@ -68,14 +68,14 @@ public struct RollaBranding {
     public init(
         hostAppName: String? = nil,
         primaryColor: UIColor? = nil,
-        defaultThemeMode: RollaThemeMode? = nil,
+        themeMode: RollaThemeMode? = nil,
         headerLogoAsset: String? = nil,
         privacyUrl: String? = nil,
         removeRollaBandReferences: Bool? = nil
     ) {
         self.hostAppName = hostAppName
         self.primaryColor = primaryColor
-        self.defaultThemeMode = defaultThemeMode
+        self.themeMode = themeMode
         self.headerLogoAsset = headerLogoAsset
         self.privacyUrl = privacyUrl
         self.removeRollaBandReferences = removeRollaBandReferences
@@ -90,8 +90,8 @@ public struct RollaBranding {
         if let primaryColor = primaryColor {
             dict["primaryColor"] = primaryColor.toInt()
         }
-        if let defaultThemeMode = defaultThemeMode {
-            dict["defaultThemeMode"] = defaultThemeMode.rawValue
+        if let themeMode = themeMode {
+            dict["themeMode"] = themeMode.rawValue
         }
         if let logo = headerLogoAsset {
             dict["headerLogoAsset"] = logo
@@ -107,7 +107,7 @@ public struct RollaBranding {
     }
 }
 
-/// Theme the SDK UI starts in until the user picks one in SDK settings.
+/// Theme the SDK UI runs in: light, dark, or following the device (system).
 public enum RollaThemeMode: String {
     case system
     case light
