@@ -10,13 +10,7 @@
 
 ---
 
-## 0.1.13 [Draft]
-
-> **No documented changes yet.** When adding a new changelog entry, follow the pattern from previous versions in this file and see [`docs/changelog/CHANGELOG_WORKFLOW.md`](docs/changelog/CHANGELOG_WORKFLOW.md). Delete this note when you add the first bullet.
-
----
-
-## 0.1.12
+## 0.1.12 [Draft]
 
 ### Both platforms
 
@@ -29,7 +23,7 @@
   All of these methods can be called without the SDK UI being opened or launched, hence the term "headless". But because headless calls have no UI to prompt from, the host owns OS permissions: when one is missing the methods fail fast with a source-specific reason (`bluetoothPermissionRequired`, `bluetoothUnavailable`, `appleHealthPermissionRequired`, `healthConnectPermissionRequired`) rather than prompting.
 
 - **[feature] Added new module — Leaderboards.** Opt-in competitive rankings compare users on their Health Score or Active Points against others in the tenant over weekly and monthly periods. The profile screen shows a summary card with the user's rank per challenge type; the detail page lists ranked participants centered on the user's position with bidirectional pagination, supports weekly/monthly toggling and browsing up to 6 months of history, and lets users join or leave (with a 7-day rejoin cooldown). The module is wired end-to-end to the backend leaderboard API and can be hidden everywhere in the SDK UI by passing the new `RollaDisabledModule.leaderboards` value in `disabledModules`, alongside the existing `weight` and `bloodPressure` values.
-- **[improvement] Onboarding profile data can be skipped by setting the profile in advance.** Host apps can now call `POST /api/setprofile` (with the user's bearer token and `Partner-ID` header, like the other auth-API endpoints) before first presenting the SDK: when the profile already carries a username, birthdate, gender and height — plus weight when the weight module is enabled — the SDK skips its account-details onboarding screen entirely. The completeness rule no longer demands units, country, or language (they default or self-heal), and a partially set profile pre-fills the onboarding form so users only complete the gaps.
+- **[improvement] Onboarding profile data can be skipped by setting the profile in advance.** Host apps can now call `POST /api/setprofile` (with the user's bearer token and `Partner-ID` header, like the other auth-API endpoints) before first presenting the SDK: when the profile already carries a username, birthdate, gender, height, and weight, the SDK skips its account-details onboarding screen entirely. Weight remains mandatory when the weight module is disabled because calorie calculations depend on it. The completeness rule no longer demands units, country, or language (they default or self-heal), and a partially set profile pre-fills the onboarding form so users only complete the gaps.
 - **[feature] Host-controlled SDK language.** `RollaConfiguration` gains an optional `language`, typed by the new `RollaLanguage` enum listing every language the SDK ships (`english`, `german`, `spanish`, `croatian`, `bosnian`, `serbianLatin`, `serbianCyrillic`, `arabic`). When set, that language is authoritative for the Flutter engine's lifetime: persisted picks and the backend profile cannot override it. Changing the configured language requires destroying and recreating the engine, like other SDK configuration changes. A configured language is also written to the user's backend profile at startup when it differs, so backend-generated content (goal labels, insights) matches the SDK UI language.
 - **[feature] Host event listener: eleven SDK events pushed to the host app.** The existing `RollaDelegate` (iOS) / `RollaListener` (Android) gains eleven methods a host can override to observe what happens inside the SDK, without polling:
 
@@ -58,8 +52,6 @@
 - **[fix] Saving an interrupted activity now keeps the duration shown on the recovery prompt.** The saved activity's summary now matches the time displayed on the Save button instead of showing a different duration.
 - **[fix] Activities with little or no distance no longer show a wrong average pace.** When there isn't enough distance to calculate a meaningful pace, the average pace is now left blank instead of displaying an unrealistic value.
 - **[fix] Bugs and stability fixes.** Various internal fixes and stability improvements.
-- **[breaking] `RollaBranding` reworked to hold exactly the options that work.** It now has six fields — `hostAppName` (below), `primaryColor` (seeds the SDK's entire color scheme: buttons, navigation, inputs, charts, share cards), `themeMode` (renamed from `defaultThemeMode` — for host apps it is authoritative like `language`, not a default; now typed by the new `RollaThemeMode` enum instead of a free-form string), `headerLogoAsset`, `privacyUrl`, and `removeRollaBandReferences` (moved from `RollaConfiguration`, same name and semantics — it is a presentation knob) — and every field is optional: a set field overrides the SDK's built-in default individually, and an unset field keeps it. Previously, passing any branding replaced all defaults at once, silently dropping e.g. the consent screen's privacy-policy link. The removed options — `appName`, `secondaryColor`, `accentColor`, `brightness`, `defaultLocale`, `termsUrl` — had no effect on the SDK UI. For the SDK language use `RollaConfiguration.language`.
-- **[feature] `RollaBranding.hostAppName` — SDK copy can name the host app.** When set, the consent screen's legal intro and the battery-optimization and motion-permission prompts name the host app explicitly (e.g. "…enable Motion & Fitness for FitnessPro") in every SDK language. Unset keeps the generic "this app" wording.
 
 ### Android
 
