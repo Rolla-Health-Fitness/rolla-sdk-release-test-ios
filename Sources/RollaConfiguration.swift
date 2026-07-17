@@ -16,7 +16,6 @@ public struct RollaConfiguration {
     public let language: RollaLanguage?
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
-    public let removeRollaBandReferences: Bool
 
     public init(
         token: String,
@@ -29,8 +28,7 @@ public struct RollaConfiguration {
         disabledDataSources: Set<RollaDataSource> = [],
         language: RollaLanguage? = nil,
         branding: RollaBranding? = nil,
-        showSettingsButton: Bool = true,
-        removeRollaBandReferences: Bool = true
+        showSettingsButton: Bool = true
     ) {
         self.token = token
         self.refreshToken = refreshToken
@@ -43,71 +41,77 @@ public struct RollaConfiguration {
         self.language = language
         self.branding = branding
         self.showSettingsButton = showSettingsButton
-        self.removeRollaBandReferences = removeRollaBandReferences
     }
 }
 
+/// Visual identity of the SDK UI. Every field is optional: a set field
+/// overrides the SDK's built-in default individually — unset fields keep it.
 public struct RollaBranding {
-    public let appName: String
-    public let primaryColor: UIColor
-    public let secondaryColor: UIColor
-    public let accentColor: UIColor
-    public let brightness: String
-    public let defaultThemeMode: String
-    public let defaultLocale: String?
+    /// Display name of the host app, shown wherever SDK copy refers to the app
+    /// (consent and permission texts). nil keeps the generic wording.
+    public let hostAppName: String?
+    /// Seeds the SDK's entire color scheme (buttons, navigation, inputs,
+    /// charts, share cards) in both light and dark themes.
+    public let primaryColor: UIColor?
+    /// Theme the SDK UI runs in: light, dark, or following the device (system).
+    public let themeMode: RollaThemeMode?
+    /// Path of a logo asset pre-bundled into the SDK by Rolla, shown in the
+    /// top app bar and on activity share cards.
     public let headerLogoAsset: String?
-    public let termsUrl: String?
+    /// Privacy policy URL linked from the consent screen.
     public let privacyUrl: String?
-    
+    /// Whether the SDK UI uses generic "fitness device" wording (true) or
+    /// Rolla Band-specific naming, imagery, and copy (false). Unset keeps
+    /// the SDK default: generic wording.
+    public let removeRollaBandReferences: Bool?
+
     public init(
-        appName: String,
-        primaryColor: UIColor,
-        secondaryColor: UIColor,
-        accentColor: UIColor,
-        brightness: String = "light",
-        defaultThemeMode: String = "system",
-        defaultLocale: String? = nil,
+        hostAppName: String? = nil,
+        primaryColor: UIColor? = nil,
+        themeMode: RollaThemeMode? = nil,
         headerLogoAsset: String? = nil,
-        termsUrl: String? = nil,
-        privacyUrl: String? = nil
+        privacyUrl: String? = nil,
+        removeRollaBandReferences: Bool? = nil
     ) {
-        self.appName = appName
+        self.hostAppName = hostAppName
         self.primaryColor = primaryColor
-        self.secondaryColor = secondaryColor
-        self.accentColor = accentColor
-        self.brightness = brightness
-        self.defaultThemeMode = defaultThemeMode
-        self.defaultLocale = defaultLocale
+        self.themeMode = themeMode
         self.headerLogoAsset = headerLogoAsset
-        self.termsUrl = termsUrl
         self.privacyUrl = privacyUrl
+        self.removeRollaBandReferences = removeRollaBandReferences
     }
 
     func toDictionary() -> [String: Any] {
-        var dict: [String: Any] = [
-            "appName": appName,
-            "primaryColor": primaryColor.toInt(),
-            "secondaryColor": secondaryColor.toInt(),
-            "accentColor": accentColor.toInt(),
-            "brightness": brightness,
-            "defaultThemeMode": defaultThemeMode,
-        ]
-        
-        if let locale = defaultLocale {
-            dict["defaultLanguage"] = locale
+        var dict: [String: Any] = [:]
+
+        if let hostAppName = hostAppName {
+            dict["hostAppName"] = hostAppName
+        }
+        if let primaryColor = primaryColor {
+            dict["primaryColor"] = primaryColor.toInt()
+        }
+        if let themeMode = themeMode {
+            dict["themeMode"] = themeMode.rawValue
         }
         if let logo = headerLogoAsset {
             dict["headerLogoAsset"] = logo
         }
-        if let terms = termsUrl {
-            dict["termsUrl"] = terms
-        }
         if let privacy = privacyUrl {
             dict["privacyUrl"] = privacy
         }
-        
+        if let removeRollaBandReferences = removeRollaBandReferences {
+            dict["removeRollaBandReferences"] = removeRollaBandReferences
+        }
+
         return dict
     }
+}
+
+/// Theme the SDK UI runs in: light, dark, or following the device (system).
+public enum RollaThemeMode: String {
+    case system
+    case light
+    case dark
 }
 
 private extension UIColor {
@@ -116,14 +120,14 @@ private extension UIColor {
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
-        
+
         getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        
+
         let a = Int(alpha * 255) << 24
         let r = Int(red * 255) << 16
         let g = Int(green * 255) << 8
         let b = Int(blue * 255)
-        
+
         return a | r | g | b
     }
 }

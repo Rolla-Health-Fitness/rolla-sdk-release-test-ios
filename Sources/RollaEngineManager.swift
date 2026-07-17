@@ -166,8 +166,7 @@ final class RollaEngineManager {
             "isModal": isModal,
             "showBackButton": showBackButton,
             "hideBottomNavigation": true,
-            "showSettingsButton": config.showSettingsButton,
-            "removeRollaBandReferences": config.removeRollaBandReferences
+            "showSettingsButton": config.showSettingsButton
         ]
 
         if let userId = config.userId {
@@ -195,7 +194,10 @@ final class RollaEngineManager {
         }
 
         if let branding = config.branding {
-            args["branding"] = branding.toDictionary()
+            let brandingDict = branding.toDictionary()
+            if !brandingDict.isEmpty {
+                args["branding"] = brandingDict
+            }
         }
 
         channel.invokeMethod("initialize", arguments: args) { response in
