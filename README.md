@@ -2,7 +2,7 @@
 
 iOS distribution repository for the Rolla Flutter SDK. Contains artifacts for integrating Rolla into native iOS apps.
 
-**Latest version:** `0.1.13-test.314`
+**Latest version:** `0.1.14-test.315`
 
 > **Package Manager Support:** CocoaPods is the only supported package manager at this time. Swift Package Manager (SPM) will be supported soon.
 
@@ -20,7 +20,7 @@ source 'https://cdn.cocoapods.org/'
 
 target 'YourApp' do
   use_frameworks!
-  pod 'RollaSDK', '0.1.13-test.314'
+  pod 'RollaSDK', '0.1.14-test.315'
 end
 ```
 
