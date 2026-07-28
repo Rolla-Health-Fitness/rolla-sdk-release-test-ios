@@ -166,7 +166,8 @@ final class RollaEngineManager {
             "isModal": isModal,
             "showBackButton": showBackButton,
             "hideBottomNavigation": true,
-            "showSettingsButton": config.showSettingsButton
+            "showSettingsButton": config.showSettingsButton,
+            "showGoalsSection": config.showGoalsSection
         ]
 
         if let userId = config.userId {

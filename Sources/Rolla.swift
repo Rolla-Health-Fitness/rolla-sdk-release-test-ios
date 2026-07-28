@@ -18,7 +18,7 @@ public final class Rolla {
         self.configuration = configuration
     }
 
-    public func show(from viewController: UIViewController) {
+    public func show(from viewController: UIViewController, transition: RollaTransition = .default) {
         DispatchQueue.main.async {
             guard !self.engineManager.isPresenting else {
                 self.delegate?.rollaDidFailWithError(self, error: .alreadyPresenting)
@@ -37,7 +37,7 @@ public final class Rolla {
 
                 switch result {
                 case .success(let vc):
-                    vc.setupSlidePresentation()
+                    vc.setupPresentation(transition: transition)
                     viewController.present(vc, animated: true)
 
                 case .failure(let error):

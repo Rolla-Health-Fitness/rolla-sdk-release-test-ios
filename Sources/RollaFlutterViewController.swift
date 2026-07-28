@@ -5,11 +5,23 @@ final class RollaFlutterViewController: FlutterViewController {
 
     var onDismiss: ((RollaCloseReason) -> Void)?
     private var didNotifyDismiss = false
-    private let slideTransitionDelegate = RollaSlideTransitioningDelegate()
 
-    func setupSlidePresentation() {
+    // UIKit's transitioningDelegate property is weak — the delegate must be
+    // held strongly for the VC's lifetime so dismissal (which can happen much
+    // later) is driven by the same animator as the presentation.
+    private var presentationTransitionDelegate: UIViewControllerTransitioningDelegate?
+
+    func setupPresentation(transition: RollaTransition) {
         modalPresentationStyle = .fullScreen
-        transitioningDelegate = slideTransitionDelegate
+        let transitionDelegate: UIViewControllerTransitioningDelegate
+        switch transition {
+        case .default:
+            transitionDelegate = RollaSlideTransitioningDelegate()
+        case .fade:
+            transitionDelegate = RollaFadeTransitioningDelegate()
+        }
+        presentationTransitionDelegate = transitionDelegate
+        transitioningDelegate = transitionDelegate
     }
 
     override func viewDidDisappear(_ animated: Bool) {
