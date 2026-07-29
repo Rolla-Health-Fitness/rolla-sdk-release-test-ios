@@ -16,9 +16,6 @@ public struct RollaConfiguration {
     public let language: RollaLanguage?
     public let branding: RollaBranding?
     public let showSettingsButton: Bool
-    /// Show the goals section at the bottom of the SDK's Home screen — the
-    /// user's enabled goals with an edit action, or a select-goals call to
-    /// action when none are enabled. Default is false.
     public let showGoalsSection: Bool
 
     public init(
