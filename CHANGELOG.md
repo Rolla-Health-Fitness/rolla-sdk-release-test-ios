@@ -14,6 +14,8 @@
 
 ### Both platforms
 
+- **[feature] Insights entry on the Home screen.** A new Insights entry card in the Home Overview section shows the unread insights count and opens the insights feed page. Hide the entry and all insights UI with the new `RollaDisabledModule.insights` value in `disabledModules`.
+- **[feature] Goals section on Home via the new `showGoalsSection` option.** `RollaConfiguration` gains an optional `showGoalsSection` (default `false`). When `true`, the bottom of the Home screen shows the user's enabled goals with an edit action — or a select-goals call to action when none are enabled.
 - **[fix] Confirmation before changing the primary data source.** Switching your primary data source now asks for confirmation first, so it can no longer happen from an accidental tap.
 
 ---
