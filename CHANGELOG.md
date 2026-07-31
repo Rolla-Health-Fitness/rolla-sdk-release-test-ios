@@ -10,18 +10,35 @@
 
 ---
 
-## 0.1.13 [Draft]
+## 0.1.14 [Draft]
 
 ### Both platforms
 
-- **[feature] Insights entry on the Home screen.** A new Insights entry card in the Home Overview section shows the unread insights count and opens the insights feed page. Hide the entry and all insights UI with the new `RollaDisabledModule.insights` value in `disabledModules`.
-- **[feature] Goals section on Home via the new `showGoalsSection` option.** `RollaConfiguration` gains an optional `showGoalsSection` (default `false`). When `true`, the bottom of the Home screen shows the user's enabled goals with an edit action — or a select-goals call to action when none are enabled.
-- **[feature] New `RollaTransition` option on `show()`.** A new optional `transition` parameter controls how the SDK UI opens and closes: `.default` is the existing animation, `.fade` is a cross-fade — the closing transition always mirrors the opening one. No changes needed in existing integrations.
+- **[fix] Leaderboard messages now follow the selected language.** The notice shown after leaving a leaderboard, which explains that rejoining is not possible for 7 days, along with the leaderboard error messages, always appeared in English regardless of the app language.
+- **[breaking] Removed the per-module configuration API, which never had any effect.** The `moduleConfigs` parameter of `initializeWithToken`, the `RollaModuleConfig` class and all of its `<Module>ModuleConfig` subclasses, and `RollaSDKConfig.moduleConfigs` / `getModuleConfig` are gone. Every value they carried was ignored by the SDK, so removing them changes no behavior — but code that constructed these objects no longer compiles. Delete the `moduleConfigs` argument and any `<Module>ModuleConfig` instances; to hide a module's UI use `disabledModules` instead.
+- **[breaking] Removed the `RollaNavigationDelegate` and `RollaStorageProvider` integration points, which were never implemented.** Along with the `navigationDelegate` and `storageProvider` fields of `RollaSDKConfig`. The SDK never read them, so no behavior changes; remove any references.
+
+### Android
+
+- **[breaking] The Add-to-App public API types moved into sub-packages.** `Rolla` and `RollaListener` keep their package (`com.rolla.sdk.wrapper`); everything else moved, so imports need updating — no types were renamed and no behavior changed. `RollaConfiguration`, `RollaBranding`, `RollaLanguage`, `RollaThemeMode`, `RollaTransition`, `RollaDataSource` and `RollaDisabledModule` are now in `com.rolla.sdk.wrapper.config`; `RollaError` and `RollaCloseReason` in `com.rolla.sdk.wrapper.features.session`; the activity payloads in `…features.activity`, band payloads in `…features.band`, `RollaSyncResult` and `RollaPrimarySourceChanged` in `…features.sync`, `RollaGoalsChanged` in `…features.goals`, and `RollaProfileUpdated` in `…features.profile`. If you declare `RollaFlutterActivity` in your own manifest, it is now `com.rolla.sdk.wrapper.engine.RollaFlutterActivity`.
+
+---
+
+## 0.1.13
+
+### Both platforms
+
+- **[feature] Insights entry on the Home screen.** A new Insights entry card in the Home Overview section shows the unread insights count and opens the insights feed page. This option can be disabled alongside all other insights UI by adding `RollaDisabledModule.insights` value to the `disabledModules`.
+
+- **[feature] Optional Goals section on Home via the new `showGoalsSection` configuration flag.** `RollaConfiguration` gains an optional `showGoalsSection` (default `false`). When `true`, the bottom of the Home screen shows the user's enabled goals with an edit action — or a select-goals call-to-action when zero goals are selected.
+
+- **[feature] New `RollaTransition` animation on the `show()` method.** A new optional `transition` parameter controls how the SDK UI opens and closes: `.default` is the existing animation, `.fade` is a cross-fade. The closing transition always mirrors the opening one.
+
+- **[fix] Confirmation before changing the primary data source.** Switching your primary data source now asks for confirmation first, so it can no longer happen from an accidental tap.
+
 - **[improvement] Refined Serbian translations.** Both Serbian scripts — Latin and Cyrillic — received a native-speaker terminology pass across the entire SDK UI.
 
 - **[improvement] General bugfixes and stability improvements.**
-
-- **[fix] Confirmation before changing the primary data source.** Switching your primary data source now asks for confirmation first, so it can no longer happen from an accidental tap.
 
 ---
 
