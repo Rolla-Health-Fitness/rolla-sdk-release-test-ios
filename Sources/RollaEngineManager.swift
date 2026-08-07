@@ -166,7 +166,7 @@ final class RollaEngineManager {
             "isModal": isModal,
             "showBackButton": showBackButton,
             "hideBottomNavigation": true,
-            "showSettingsButton": config.showSettingsButton,
+            "showOptionsButton": config.showOptionsButton,
             "showGoalsSection": config.showGoalsSection
         ]
 

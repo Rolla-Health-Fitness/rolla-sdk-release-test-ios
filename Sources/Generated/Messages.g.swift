@@ -1241,6 +1241,248 @@ class RollaBluetoothFlutterApi: RollaBluetoothFlutterApiProtocol {
     }
   }
 }
+/// API for Flutter to call native platform Heart Rate Monitor (HRM) operations
+///
+/// Independent of the Rolla Band stack. Scans for, connects to, and subscribes
+/// to standard BLE heart rate devices (chest straps, arm bands) that implement
+/// the Heart Rate Service (0x180D) and Heart Rate Measurement characteristic
+/// (0x2A37). Drives the same generic native BLE machinery as the band, but on
+/// its own Pigeon channel so it stays decoupled from [RollaBluetoothHostApi].
+/// See the Bluetooth HRM PRD (Technical Architecture → HRM Connection Manager).
+///
+/// Generated protocol from Pigeon that represents a handler of messages from Flutter.
+protocol HrmHostApi {
+  /// Starts scanning for BLE devices advertising the Heart Rate Service (0x180D)
+  ///
+  /// [scanDuration] - How long to scan in milliseconds (default: 10 seconds)
+  ///
+  /// Discovered devices are delivered via [HrmFlutterApi.onHrmDevicesFound].
+  func startHrmScan(scanDuration: Int64, completion: @escaping (Result<Void, Error>) -> Void)
+  /// Stops any active HRM scan.
+  func stopHrmScan(completion: @escaping (Result<Void, Error>) -> Void)
+  /// Connects to an HRM device, discovers its services, and subscribes to the
+  /// Heart Rate Measurement characteristic (0x2A37) notifications
+  ///
+  /// [uuid] - Platform device identifier (UUID on iOS, MAC address on Android)
+  ///
+  /// Returns true if the connection was established. Connection state changes
+  /// arrive via [HrmFlutterApi.onHrmConnectionStateChanged].
+  func connectHrmDevice(uuid: String, completion: @escaping (Result<Bool, Error>) -> Void)
+  /// Unsubscribes from notifications and closes the GATT connection
+  ///
+  /// [uuid] - Platform device identifier of the HRM device to disconnect from
+  func disconnectHrmDevice(uuid: String, completion: @escaping (Result<Bool, Error>) -> Void)
+  /// Returns the current connection state of the given HRM device.
+  func checkHrmConnectionState(uuid: String, completion: @escaping (Result<ConnectionState, Error>) -> Void)
+}
+
+/// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
+class HrmHostApiSetup {
+  static var codec: FlutterStandardMessageCodec { MessagesPigeonCodec.shared }
+  /// Sets up an instance of `HrmHostApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: HrmHostApi?, messageChannelSuffix: String = "") {
+    let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
+    /// Starts scanning for BLE devices advertising the Heart Rate Service (0x180D)
+    ///
+    /// [scanDuration] - How long to scan in milliseconds (default: 10 seconds)
+    ///
+    /// Discovered devices are delivered via [HrmFlutterApi.onHrmDevicesFound].
+    let startHrmScanChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.HrmHostApi.startHrmScan\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      startHrmScanChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let scanDurationArg = args[0] as! Int64
+        api.startHrmScan(scanDuration: scanDurationArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      startHrmScanChannel.setMessageHandler(nil)
+    }
+    /// Stops any active HRM scan.
+    let stopHrmScanChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.HrmHostApi.stopHrmScan\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      stopHrmScanChannel.setMessageHandler { _, reply in
+        api.stopHrmScan { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      stopHrmScanChannel.setMessageHandler(nil)
+    }
+    /// Connects to an HRM device, discovers its services, and subscribes to the
+    /// Heart Rate Measurement characteristic (0x2A37) notifications
+    ///
+    /// [uuid] - Platform device identifier (UUID on iOS, MAC address on Android)
+    ///
+    /// Returns true if the connection was established. Connection state changes
+    /// arrive via [HrmFlutterApi.onHrmConnectionStateChanged].
+    let connectHrmDeviceChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.HrmHostApi.connectHrmDevice\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      connectHrmDeviceChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let uuidArg = args[0] as! String
+        api.connectHrmDevice(uuid: uuidArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      connectHrmDeviceChannel.setMessageHandler(nil)
+    }
+    /// Unsubscribes from notifications and closes the GATT connection
+    ///
+    /// [uuid] - Platform device identifier of the HRM device to disconnect from
+    let disconnectHrmDeviceChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.HrmHostApi.disconnectHrmDevice\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      disconnectHrmDeviceChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let uuidArg = args[0] as! String
+        api.disconnectHrmDevice(uuid: uuidArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      disconnectHrmDeviceChannel.setMessageHandler(nil)
+    }
+    /// Returns the current connection state of the given HRM device.
+    let checkHrmConnectionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.HrmHostApi.checkHrmConnectionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      checkHrmConnectionStateChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let uuidArg = args[0] as! String
+        api.checkHrmConnectionState(uuid: uuidArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      checkHrmConnectionStateChannel.setMessageHandler(nil)
+    }
+  }
+}
+/// API for native platforms to deliver HRM events back to Flutter
+///
+/// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
+protocol HrmFlutterApiProtocol {
+  /// Called as HRM devices are discovered during a scan
+  ///
+  /// [devices] - Discovered heart rate devices with their current information
+  func onHrmDevicesFound(devices devicesArg: [BluetoothDevice], completion: @escaping (Result<Void, PigeonError>) -> Void)
+  /// Called when an HRM device's connection state changes
+  ///
+  /// [uuid] - Platform device identifier of the device
+  /// [state] - New connection state
+  func onHrmConnectionStateChanged(uuid uuidArg: String, state stateArg: ConnectionState, completion: @escaping (Result<Void, PigeonError>) -> Void)
+  /// Called when a heart rate measurement is received from the connected HRM
+  ///
+  /// [heartRate] - Heart rate in beats per minute (BPM), parsed natively from
+  /// the 0x2A37 characteristic. Sanitizing and feeding the activity sample
+  /// pipeline is the responsibility of HrmSensorDataSource, not the connection
+  /// manager.
+  func onHrmHeartRateReceived(heartRate heartRateArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
+}
+class HrmFlutterApi: HrmFlutterApiProtocol {
+  private let binaryMessenger: FlutterBinaryMessenger
+  private let messageChannelSuffix: String
+  init(binaryMessenger: FlutterBinaryMessenger, messageChannelSuffix: String = "") {
+    self.binaryMessenger = binaryMessenger
+    self.messageChannelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
+  }
+  var codec: MessagesPigeonCodec {
+    return MessagesPigeonCodec.shared
+  }
+  /// Called as HRM devices are discovered during a scan
+  ///
+  /// [devices] - Discovered heart rate devices with their current information
+  func onHrmDevicesFound(devices devicesArg: [BluetoothDevice], completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.rolla_sdk.HrmFlutterApi.onHrmDevicesFound\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([devicesArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+  /// Called when an HRM device's connection state changes
+  ///
+  /// [uuid] - Platform device identifier of the device
+  /// [state] - New connection state
+  func onHrmConnectionStateChanged(uuid uuidArg: String, state stateArg: ConnectionState, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.rolla_sdk.HrmFlutterApi.onHrmConnectionStateChanged\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([uuidArg, stateArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+  /// Called when a heart rate measurement is received from the connected HRM
+  ///
+  /// [heartRate] - Heart rate in beats per minute (BPM), parsed natively from
+  /// the 0x2A37 characteristic. Sanitizing and feeding the activity sample
+  /// pipeline is the responsibility of HrmSensorDataSource, not the connection
+  /// manager.
+  func onHrmHeartRateReceived(heartRate heartRateArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.rolla_sdk.HrmFlutterApi.onHrmHeartRateReceived\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([heartRateArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+}
 /// API for native platforms to send data back to Flutter
 ///
 /// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.

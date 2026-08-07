@@ -11,6 +11,7 @@ final class AppDependencies {
     let chargingStateFlutterApi: BandChargingStateFlutterApiProtocol
     let devicePowerModeFlutterApi: DevicePowerModeFlutterApiProtocol
     let phonePedometerFlutterApi: PhonePedometerFlutterApiProtocol
+    let hrmFlutterApi: HrmFlutterApi
     let locationDependencies: LocationDependencies
 
     let logger: RollaLogger
@@ -85,6 +86,13 @@ final class AppDependencies {
         PhonePedometerHandler(flutterApi: phonePedometerFlutterApi)
     }()
 
+    /// Heart Rate Monitor (HRM) handler — standalone BLE heart rate device
+    /// discovery/connection, independent of the Rolla Band path. Held as a
+    /// stored property so it survives for the engine's lifetime.
+    lazy var hrmHostApiHandler: HrmHostApiHandler = {
+        HrmHostApiHandler(flutterApi: hrmFlutterApi)
+    }()
+
     /// Handles Apple Health (HealthKit) queries.
     ///
     /// Formerly the standalone `apple_health` Flutter plugin, which registered
@@ -155,6 +163,10 @@ final class AppDependencies {
             binaryMessenger: binaryMessenger
         )
 
+        self.hrmFlutterApi = HrmFlutterApi(
+            binaryMessenger: binaryMessenger
+        )
+
         self.locationDependencies = LocationDependencies(logger: logger)
     }
     
@@ -204,6 +216,11 @@ final class AppDependencies {
         PhonePedometerHostApiSetup.setUp(
             binaryMessenger: binaryMessenger,
             api: phonePedometerHandler
+        )
+
+        HrmHostApiSetup.setUp(
+            binaryMessenger: binaryMessenger,
+            api: hrmHostApiHandler
         )
 
         // Apple Health (HealthKit) handler. Formerly auto-registered by the

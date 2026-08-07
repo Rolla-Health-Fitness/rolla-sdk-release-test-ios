@@ -15,7 +15,7 @@ public struct RollaConfiguration {
     /// language. nil keeps the profile-driven behavior.
     public let language: RollaLanguage?
     public let branding: RollaBranding?
-    public let showSettingsButton: Bool
+    public let showOptionsButton: Bool
     public let showGoalsSection: Bool
 
     public init(
@@ -29,7 +29,7 @@ public struct RollaConfiguration {
         disabledDataSources: Set<RollaDataSource> = [],
         language: RollaLanguage? = nil,
         branding: RollaBranding? = nil,
-        showSettingsButton: Bool = true,
+        showOptionsButton: Bool = true,
         showGoalsSection: Bool = false
     ) {
         self.token = token
@@ -42,7 +42,7 @@ public struct RollaConfiguration {
         self.disabledDataSources = disabledDataSources
         self.language = language
         self.branding = branding
-        self.showSettingsButton = showSettingsButton
+        self.showOptionsButton = showOptionsButton
         self.showGoalsSection = showGoalsSection
     }
 }

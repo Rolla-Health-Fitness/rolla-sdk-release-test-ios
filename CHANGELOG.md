@@ -14,13 +14,22 @@
 
 ### Both platforms
 
+- **[breaking] `showSettingsButton` is renamed to `showOptionsButton`, and the entry moved to the top right app bar actions.** The Settings button that was positioned at the very bottom of the Home scroll is now a three-dot options action at the trailing edge of the Home app bar, visible without scrolling. It opens the same bottom sheet of shortcuts as before, now titled "Options". The flag's meaning and default (`true`) are unchanged — so just rename the parameter on your `RollaConfiguration`.
+
+- **[feature] Bluetooth heart rate monitor support.** A standard Bluetooth heart rate monitor (Polar, Garmin, Wahoo and similar chest straps and arm bands) can now be connected from the activity setup screen and used as a workout's heart rate source instead of the Rolla Band. Previously connected monitors are remembered and reconnected automatically when in range, and one that drops mid-workout reconnects on its own. A workout tracked with a monitor does not use a paired Band at all.
+
 - **[fix] Leaderboard messages now follow the selected language.** The notice shown after leaving a leaderboard, which explains that rejoining is not possible for 7 days, along with the leaderboard error messages, always appeared in English regardless of the app language.
-- **[breaking] Removed the per-module configuration API, which never had any effect.** The `moduleConfigs` parameter of `initializeWithToken`, the `RollaModuleConfig` class and all of its `<Module>ModuleConfig` subclasses, and `RollaSDKConfig.moduleConfigs` / `getModuleConfig` are gone. Every value they carried was ignored by the SDK, so removing them changes no behavior — but code that constructed these objects no longer compiles. Delete the `moduleConfigs` argument and any `<Module>ModuleConfig` instances; to hide a module's UI use `disabledModules` instead.
-- **[breaking] Removed the `RollaNavigationDelegate` and `RollaStorageProvider` integration points, which were never implemented.** Along with the `navigationDelegate` and `storageProvider` fields of `RollaSDKConfig`. The SDK never read them, so no behavior changes; remove any references.
+
+- **[fix] Home totals update immediately after deleting an activity.** The Active Points and Active Calories tiles and the Activity score card now refetch as soon as an activity is deleted, instead of correcting only after a manual reload.
+- **[fix] Activity catalog search now ignores diacritics.** Searching is accent-insensitive (e.g. "trcanje" matches "Trčanje"), and the Yoga activity name is corrected in Bosnian/Serbian ("Joga" / "Јога").
+
+- **[improvement] Notification texts are now translated for every supported language.** The engagement and battery notification strings moved into the SDK's localization system, and date-of-birth fields now render month names in the selected language, including Latin-script Serbian.
 
 ### Android
 
 - **[breaking] The Add-to-App public API types moved into sub-packages.** `Rolla` and `RollaListener` keep their package (`com.rolla.sdk.wrapper`); everything else moved, so imports need updating — no types were renamed and no behavior changed. `RollaConfiguration`, `RollaBranding`, `RollaLanguage`, `RollaThemeMode`, `RollaTransition`, `RollaDataSource` and `RollaDisabledModule` are now in `com.rolla.sdk.wrapper.config`; `RollaError` and `RollaCloseReason` in `com.rolla.sdk.wrapper.features.session`; the activity payloads in `…features.activity`, band payloads in `…features.band`, `RollaSyncResult` and `RollaPrimarySourceChanged` in `…features.sync`, `RollaGoalsChanged` in `…features.goals`, and `RollaProfileUpdated` in `…features.profile`. If you declare `RollaFlutterActivity` in your own manifest, it is now `com.rolla.sdk.wrapper.engine.RollaFlutterActivity`.
+
+- **[fix] Pairing a band again right after unpairing it now works.** Until now that attempt could quietly fail — the screen returned to the start of pairing with no message — and only succeeded after waiting around a minute.
 
 ---
 
