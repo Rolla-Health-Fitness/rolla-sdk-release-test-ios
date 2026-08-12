@@ -5,9 +5,9 @@ import Foundation
 /// Every outcome is one of these typed statuses — the call never throws and
 /// never fails silently.
 public enum RollaOpenScreenStatus: String {
-    /// The SDK UI is on the requested screen. The screen sits on top of the
-    /// SDK Home screen, so back returns to Home and the usual close
-    /// affordances apply from there.
+    /// The SDK UI is on the requested screen. The screen is the root of the
+    /// SDK UI — back returns the user to the host app, exactly where they
+    /// tapped, never to an SDK Home they did not visit.
     case opened
     /// The SDK session is not initialized.
     /// ``Rolla/openScreen(_:from:completion:)`` configures the SDK itself

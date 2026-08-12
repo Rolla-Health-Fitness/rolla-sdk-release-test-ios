@@ -280,10 +280,10 @@ public final class Rolla {
     ///
     /// When the SDK UI is not presented, this runs the same presentation flow
     /// as ``show(from:transition:)`` and then navigates; when it is already
-    /// presented, it navigates in place. Either way the
-    /// opened screen sits **on top of the SDK Home screen** — back returns to
-    /// Home, and the usual close affordances apply from there. Calling it
-    /// again resets to Home before opening the next screen.
+    /// presented, it navigates in place. Either way the opened screen is the
+    /// **root of the SDK UI** — its back affordance returns the user to the
+    /// host app, exactly where they tapped, never to an SDK Home they did not
+    /// visit. Calling it again replaces the root with the next screen.
     ///
     /// The result is always a typed ``RollaOpenScreenStatus``; the call never
     /// throws and never fails silently:
