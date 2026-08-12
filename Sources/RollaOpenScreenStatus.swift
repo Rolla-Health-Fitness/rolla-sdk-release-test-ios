@@ -1,6 +1,6 @@
 import Foundation
 
-/// Outcome of an ``Rolla/openScreen(_:from:completion:)`` request.
+/// Outcome of an ``Rolla/openScreen(_:from:transition:completion:)`` request.
 ///
 /// Every outcome is one of these typed statuses — the call never throws and
 /// never fails silently.
@@ -10,7 +10,7 @@ public enum RollaOpenScreenStatus: String {
     /// tapped, never to an SDK Home they did not visit.
     case opened
     /// The SDK session is not initialized.
-    /// ``Rolla/openScreen(_:from:completion:)`` configures the SDK itself
+    /// ``Rolla/openScreen(_:from:transition:completion:)`` configures the SDK itself
     /// before navigating, so this indicates the configuration did not produce
     /// a usable session (e.g. it was rejected).
     case notInitialized

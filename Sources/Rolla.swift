@@ -278,12 +278,23 @@ public final class Rolla {
     /// Open a specific SDK screen (``RollaScreen``), presenting the SDK UI
     /// first when it is not already on screen.
     ///
-    /// When the SDK UI is not presented, this runs the same presentation flow
-    /// as ``show(from:transition:)`` and then navigates; when it is already
-    /// presented, it navigates in place. Either way the opened screen is the
-    /// **root of the SDK UI** — its back affordance returns the user to the
-    /// host app, exactly where they tapped, never to an SDK Home they did not
-    /// visit. Calling it again replaces the root with the next screen.
+    /// When the SDK UI is already presented, this navigates in place. When it
+    /// is not, the SDK UI is presented exactly as ``show(from:transition:)``
+    /// would present it — and on a warm engine (already running, e.g. after
+    /// ``warmUpEngine(completion:)`` or an earlier presentation) the
+    /// navigation happens **before** the reveal: the target screen settles
+    /// offscreen, so the presentation animation uncovers the final screen
+    /// with no SDK-internal transition playing under it, and a request that
+    /// resolves as anything other than ``RollaOpenScreenStatus/opened``
+    /// (e.g. a disabled screen) completes without showing the SDK UI at all.
+    /// Only a cold engine presents first, its loader covering start-up, and
+    /// navigates after — so there a mandatory startup step may still take
+    /// over once presented (``RollaOpenScreenStatus/blockedByGate``).
+    ///
+    /// Either way the opened screen is the **root of the SDK UI** — its back
+    /// affordance returns the user to the host app, exactly where they
+    /// tapped, never to an SDK Home they did not visit. Calling it again
+    /// replaces the root with the next screen.
     ///
     /// The result is always a typed ``RollaOpenScreenStatus``; the call never
     /// throws and never fails silently:
@@ -341,6 +352,19 @@ public final class Rolla {
                 return
             }
 
+            // Warm engine: navigate first, reveal second. The target screen
+            // settles offscreen, so the host's presentation animation uncovers
+            // the final screen — Flutter tickers don't advance while hidden,
+            // so a post-present navigation would visibly replay its
+            // transition — and a request that doesn't resolve as `.opened`
+            // (e.g. screenDisabled) never flashes the SDK UI open.
+            if self.engineManager.engine != nil {
+                self.openScreenOnWarmEngine(screen, from: viewController, transition: transition, completion: completion)
+                return
+            }
+
+            // Cold engine: present first — the SDK's loader covers engine
+            // start-up while the queued navigation settles behind it.
             self.engineManager.setPresenting(true)
 
             // Capture `self` STRONGLY through the presentation round-trip —
@@ -368,6 +392,61 @@ public final class Rolla {
                     } else {
                         completion(.unknownError)
                     }
+                }
+            }
+        }
+    }
+
+    /// Warm-engine half of ``openScreen(_:from:transition:completion:)``:
+    /// configure, navigate over the channel, and present only when the
+    /// navigation resolved as ``RollaOpenScreenStatus/opened`` — any other
+    /// status completes without the SDK UI ever appearing.
+    private func openScreenOnWarmEngine(
+        _ screen: RollaScreen,
+        from viewController: UIViewController,
+        transition: RollaTransition,
+        completion: @escaping (RollaOpenScreenStatus) -> Void
+    ) {
+        // Reserve the presentation slot up front, exactly like show(), so a
+        // concurrent show()/openScreen() can't start a second presentation
+        // while this one is in flight. Every non-presenting exit releases it.
+        engineManager.setPresenting(true)
+
+        // Engine-scoped host events must flow regardless of presentation —
+        // same discipline as the headless APIs (see warmUpEngine).
+        wireHostEventCallbacks()
+
+        // `self` is captured strongly through the round-trips — same
+        // reasoning as getBandBatteryLevel(completion:).
+        engineManager.ensureConfigured(with: configuration) { configureResult in
+            switch configureResult {
+            case .failure(let error):
+                self.engineManager.setPresenting(false)
+                self.delegate?.rollaDidFailWithError(self, error: error)
+                completion(.unknownError)
+
+            case .success:
+                // Sequenced behind configure's `initialize` — the Dart side
+                // queues the navigation until its home widget settles.
+                self.engineManager.openScreen(screen) { status in
+                    guard status == .opened else {
+                        self.engineManager.setPresenting(false)
+                        completion(status)
+                        return
+                    }
+
+                    guard let engine = self.engineManager.engine else {
+                        self.engineManager.setPresenting(false)
+                        self.delegate?.rollaDidFailWithError(self, error: .engineFailedToStart)
+                        completion(.unknownError)
+                        return
+                    }
+
+                    self.setupCallbacks()
+                    let vc = self.makePresentableViewController(engine: engine)
+                    vc.setupPresentation(transition: transition)
+                    viewController.present(vc, animated: true)
+                    completion(.opened)
                 }
             }
         }
@@ -418,20 +497,26 @@ public final class Rolla {
 
             switch result {
             case .success:
-                let vc = RollaFlutterViewController(engine: engine, nibName: nil, bundle: nil)
-                vc.onDismiss = { [weak self] reason in
-                    guard let self else { return }
-                    let finalReason = self.pendingCloseReason ?? reason
-                    self.cleanup()
-                    self.delegate?.rollaDidClose(self, reason: finalReason)
-                }
-                self.flutterViewController = vc
-                completion(.success(vc))
+                completion(.success(self.makePresentableViewController(engine: engine)))
 
             case .failure(let error):
                 completion(.failure(error))
             }
         }
+    }
+
+    /// Create the SDK's Flutter view controller, wire its dismiss handling to
+    /// this instance, and remember it for ``dismiss()``.
+    private func makePresentableViewController(engine: FlutterEngine) -> RollaFlutterViewController {
+        let vc = RollaFlutterViewController(engine: engine, nibName: nil, bundle: nil)
+        vc.onDismiss = { [weak self] reason in
+            guard let self else { return }
+            let finalReason = self.pendingCloseReason ?? reason
+            self.cleanup()
+            self.delegate?.rollaDidClose(self, reason: finalReason)
+        }
+        flutterViewController = vc
+        return vc
     }
 
     /// Wire the host-event closures to THIS instance's delegate for the
