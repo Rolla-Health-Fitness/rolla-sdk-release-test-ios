@@ -141,18 +141,58 @@ extension HrmHostApiHandler: HrmHostApi {
                 return
             }
 
-            // Stream 0x2A37 notifications → parse → Flutter. Held in the
-            // registry so disconnect / teardown can cancel it.
-            let observationTask = Task { [characteristicObserver, flutterApi] in
-                let (stream, _) = await characteristicObserver.observeNotifications(
-                    deviceID: deviceId,
-                    serviceUUID: BLEServiceType.heartRate.uuid,
-                    characteristicUUID: BLECharacteristicType.heartRateMeasurement.uuid
+            // If the device also exposes the RSC service (0x1814), enable its
+            // measurement characteristic (0x2A53). Best-effort — absence of RSC
+            // must not fail the connect (Stage 2, no quality gating).
+            var rscEnabled = false
+            do {
+                try await commandExecutor.execute(
+                    EnableNotificationCommand(
+                        deviceID: deviceId,
+                        serviceUUID: BLEServiceType.runningSpeedAndCadence.uuid,
+                        characteristicUUID: BLECharacteristicType.rscMeasurement.uuid,
+                        timeout: Constants.notificationTimeout
+                    )
                 )
-                for await data in stream {
-                    guard let bpm = HeartRateMeasurementParser.parse(data) else { continue }
-                    await MainActor.run {
-                        flutterApi.onHrmHeartRateReceived(heartRate: Int64(bpm)) { _ in }
+                rscEnabled = true
+            } catch {
+                rscEnabled = false
+            }
+
+            // Stream 0x2A37 (and 0x2A53 if present) notifications → parse →
+            // Flutter. Held in the registry so disconnect / teardown cancels it.
+            let observationTask = Task { [characteristicObserver, flutterApi] in
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        let (stream, _) = await characteristicObserver.observeNotifications(
+                            deviceID: deviceId,
+                            serviceUUID: BLEServiceType.heartRate.uuid,
+                            characteristicUUID: BLECharacteristicType.heartRateMeasurement.uuid
+                        )
+                        for await data in stream {
+                            guard let bpm = HeartRateMeasurementParser.parse(data) else { continue }
+                            await MainActor.run {
+                                flutterApi.onHrmHeartRateReceived(heartRate: Int64(bpm)) { _ in }
+                            }
+                        }
+                    }
+                    if rscEnabled {
+                        group.addTask {
+                            let (stream, _) = await characteristicObserver.observeNotifications(
+                                deviceID: deviceId,
+                                serviceUUID: BLEServiceType.runningSpeedAndCadence.uuid,
+                                characteristicUUID: BLECharacteristicType.rscMeasurement.uuid
+                            )
+                            for await data in stream {
+                                guard let rsc = RscMeasurementParser.parse(data) else { continue }
+                                await MainActor.run {
+                                    flutterApi.onHrmRunningSpeedCadenceReceived(
+                                        speedMps: rsc.speedMps,
+                                        cadenceSpm: Int64(rsc.cadenceSpm)
+                                    ) { _ in }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -327,5 +367,22 @@ enum HeartRateMeasurementParser {
             guard bytes.count >= 2 else { return nil }
             return Int(bytes[1])
         }
+    }
+}
+
+/// Parses a standard BLE RSC Measurement (0x2A53) value.
+///
+/// Byte 0 is a flags field. Bytes 1-2 are the instantaneous speed as a UINT16
+/// in units of 1/256 m/s (little-endian); byte 3 is the instantaneous cadence
+/// in steps per minute. Stride length / total distance (optional, per flags)
+/// are ignored for Stage 2.
+enum RscMeasurementParser {
+    static func parse(_ data: Data) -> (speedMps: Double, cadenceSpm: Int)? {
+        let bytes = [UInt8](data)
+        guard bytes.count >= 4 else { return nil }
+        let speedRaw = Int(bytes[1]) | (Int(bytes[2]) << 8)
+        let speedMps = Double(speedRaw) / 256.0
+        let cadence = Int(bytes[3])
+        return (speedMps: speedMps, cadenceSpm: cadence)
     }
 }

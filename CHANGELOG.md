@@ -18,12 +18,16 @@
 
 - **[feature] Bluetooth heart rate monitor support.** A standard Bluetooth heart rate monitor (Polar, Garmin, Wahoo and similar chest straps and arm bands) can now be connected from the activity setup screen and used as a workout's heart rate source instead of the Rolla Band. Previously connected monitors are remembered and reconnected automatically when in range, and one that drops mid-workout reconnects on its own. A workout tracked with a monitor does not use a paired Band at all.
 
+- **[feature] Open a specific SDK screen from the host app.** The new `openScreen` API (Flutter: `RollaSDK.openScreen`, iOS/Android wrappers: `openScreen`) opens the Insights feed, the activity history, or the goals editor directly — presenting the SDK UI first when it is not on screen. The opened screen sits on top of the SDK Home screen, so back returns to Home. Every outcome is a typed `RollaOpenScreenStatus`; the SDK's mandatory startup steps (onboarding, consent, permissions, data-source connection) always take precedence over the request.
+
 - **[fix] Leaderboard messages now follow the selected language.** The notice shown after leaving a leaderboard, which explains that rejoining is not possible for 7 days, along with the leaderboard error messages, always appeared in English regardless of the app language.
 
 - **[fix] Home totals update immediately after deleting an activity.** The Active Points and Active Calories tiles and the Activity score card now refetch as soon as an activity is deleted, instead of correcting only after a manual reload.
 - **[fix] Activity catalog search now ignores diacritics.** Searching is accent-insensitive (e.g. "trcanje" matches "Trčanje"), and the Yoga activity name is corrected in Bosnian/Serbian ("Joga" / "Јога").
 
 - **[improvement] Notification texts are now translated for every supported language.** The engagement and battery notification strings moved into the SDK's localization system, and date-of-birth fields now render month names in the selected language, including Latin-script Serbian.
+
+- **[feature] One-time historical data import when a source is connected.** After connecting Apple Health, Health Connect, Garmin or Oura, the user is offered a backfill of the date range the backend reports as available, and can accept it, skip it (it stays re-offerable), or start it later from the "Import history" action in Data Sources. Apple Health and Health Connect are read on-device with per-stage progress while the screen stays open; Garmin and Oura are backfilled by the backend and the screen just confirms the job started. An on-device import that was interrupted is picked up again from the same action.
 
 ### Android
 

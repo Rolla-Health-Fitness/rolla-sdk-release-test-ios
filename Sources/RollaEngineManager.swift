@@ -341,6 +341,32 @@ final class RollaEngineManager {
         }
     }
 
+    /// Ask the SDK UI to navigate to a screen over the method channel.
+    ///
+    /// Resolves to a typed ``RollaOpenScreenStatus`` — every outcome,
+    /// including a channel error or an unparseable response, is encoded in
+    /// the status (as ``RollaOpenScreenStatus/unknownError``); nothing throws.
+    ///
+    /// Must only be invoked after `initialize` has been dispatched on the
+    /// channel: the Dart side queues the navigation until its home widget
+    /// settles, but only once the SDK entry point exists.
+    func openScreen(_ screen: RollaScreen, completion: @escaping (RollaOpenScreenStatus) -> Void) {
+        guard let channel = methodChannel else {
+            completion(.unknownError)
+            return
+        }
+
+        channel.invokeMethod("openScreen", arguments: ["screen": screen.rawValue]) { response in
+            DispatchQueue.main.async {
+                if response is FlutterError {
+                    completion(.unknownError)
+                } else {
+                    completion(RollaOpenScreenStatus.from(response))
+                }
+            }
+        }
+    }
+
     func clearSession(completion: @escaping (Result<Void, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))

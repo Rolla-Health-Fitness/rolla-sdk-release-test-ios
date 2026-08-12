@@ -1404,6 +1404,14 @@ protocol HrmFlutterApiProtocol {
   /// pipeline is the responsibility of HrmSensorDataSource, not the connection
   /// manager.
   func onHrmHeartRateReceived(heartRate heartRateArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
+  /// Called when a Running Speed and Cadence measurement is received from the
+  /// connected HRM (Stage 2). Only fires for devices that also expose the RSC
+  /// Service (0x1814); parsed natively from the RSC Measurement characteristic
+  /// (0x2A53).
+  ///
+  /// [speedMps] - Instantaneous speed in metres per second
+  /// [cadenceSpm] - Instantaneous cadence in steps per minute
+  func onHrmRunningSpeedCadenceReceived(speedMps speedMpsArg: Double, cadenceSpm cadenceSpmArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
 }
 class HrmFlutterApi: HrmFlutterApiProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
@@ -1468,6 +1476,31 @@ class HrmFlutterApi: HrmFlutterApiProtocol {
     let channelName: String = "dev.flutter.pigeon.rolla_sdk.HrmFlutterApi.onHrmHeartRateReceived\(messageChannelSuffix)"
     let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
     channel.sendMessage([heartRateArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+  /// Called when a Running Speed and Cadence measurement is received from the
+  /// connected HRM (Stage 2). Only fires for devices that also expose the RSC
+  /// Service (0x1814); parsed natively from the RSC Measurement characteristic
+  /// (0x2A53).
+  ///
+  /// [speedMps] - Instantaneous speed in metres per second
+  /// [cadenceSpm] - Instantaneous cadence in steps per minute
+  func onHrmRunningSpeedCadenceReceived(speedMps speedMpsArg: Double, cadenceSpm cadenceSpmArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.rolla_sdk.HrmFlutterApi.onHrmRunningSpeedCadenceReceived\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([speedMpsArg, cadenceSpmArg] as [Any?]) { response in
       guard let listResponse = response as? [Any?] else {
         completion(.failure(createConnectionError(withChannelName: channelName)))
         return

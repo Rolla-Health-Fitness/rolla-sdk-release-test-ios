@@ -95,8 +95,9 @@ public final class Rolla {
     /// any UI.
     ///
     /// This is an optional performance optimization. ``show(from:)``,
-    /// ``getBandBatteryLevel(completion:)``, ``getPairedBandInfo(completion:)``,
-    /// and ``syncHealthData(includeSamples:completion:)`` all start the engine
+    /// ``openScreen(_:from:completion:)``, ``getBandBatteryLevel(completion:)``,
+    /// ``getPairedBandInfo(completion:)``, and
+    /// ``syncHealthData(includeSamples:completion:)`` all start the engine
     /// themselves on first use, so none of them require a prior warm-up — calling
     /// this simply moves that one-time start-up cost off the first call. A common
     /// pattern is to warm up right after login so the first ``show(from:)``
@@ -269,6 +270,104 @@ public final class Rolla {
                     }
                 case .failure(let error):
                     completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    /// Open a specific SDK screen (``RollaScreen``), presenting the SDK UI
+    /// first when it is not already on screen.
+    ///
+    /// When the SDK UI is not presented, this runs the same presentation flow
+    /// as ``show(from:transition:)`` and then navigates; when it is already
+    /// presented, it navigates in place. Either way the
+    /// opened screen sits **on top of the SDK Home screen** — back returns to
+    /// Home, and the usual close affordances apply from there. Calling it
+    /// again resets to Home before opening the next screen.
+    ///
+    /// The result is always a typed ``RollaOpenScreenStatus``; the call never
+    /// throws and never fails silently:
+    ///
+    /// - ``RollaOpenScreenStatus/opened`` — the SDK UI is on the requested
+    ///   screen.
+    /// - ``RollaOpenScreenStatus/screenDisabled`` — the screen's module is in
+    ///   ``RollaConfiguration/disabledModules`` (e.g. ``RollaScreen/insights``
+    ///   with ``RollaDisabledModule/insights``). Nothing was opened.
+    /// - ``RollaOpenScreenStatus/blockedByGate`` — a mandatory startup step
+    ///   (onboarding, consent, permissions, data-source connection) is in
+    ///   front of the user and stays there.
+    /// - ``RollaOpenScreenStatus/uiUnavailable`` — the SDK UI could not be
+    ///   shown (the `from` view controller is not attached to a window) or
+    ///   never became ready to navigate.
+    /// - ``RollaOpenScreenStatus/superseded`` — a newer request replaced this
+    ///   one while waiting for the UI.
+    /// - ``RollaOpenScreenStatus/notInitialized`` /
+    ///   ``RollaOpenScreenStatus/unknownError`` — internal problems (see each
+    ///   case); neither is an expected runtime condition.
+    ///
+    /// When presentation itself fails, the failure is also reported to
+    /// ``RollaDelegate/rollaDidFailWithError(_:error:)`` exactly as a failed
+    /// ``show(from:)`` would report it — the completion status is additive,
+    /// not a replacement for the delegate.
+    ///
+    /// - Parameters:
+    ///   - screen: The screen to open.
+    ///   - viewController: The view controller to present the SDK UI from
+    ///     when it is not already on screen. Must be attached to a window.
+    ///   - transition: The presentation animation used when this call has to
+    ///     present the SDK UI, same as ``show(from:transition:)``. Ignored
+    ///     when the SDK UI is already on screen.
+    ///   - completion: Delivers the outcome on the main thread.
+    public func openScreen(
+        _ screen: RollaScreen,
+        from viewController: UIViewController,
+        transition: RollaTransition = .default,
+        completion: @escaping (RollaOpenScreenStatus) -> Void
+    ) {
+        DispatchQueue.main.async {
+            // SDK UI already on screen: navigate in place, keeping whichever
+            // instance presented it in charge of the presentation callbacks —
+            // this call owns only its completion. show() dispatches the
+            // channel `initialize` in the same main-queue turn that sets
+            // isPresenting, so the invoke below is sequenced behind it.
+            if self.engineManager.isPresenting {
+                self.engineManager.openScreen(screen, completion: completion)
+                return
+            }
+
+            guard viewController.viewIfLoaded?.window != nil else {
+                self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
+                completion(.uiUnavailable)
+                return
+            }
+
+            self.engineManager.setPresenting(true)
+
+            // Capture `self` STRONGLY through the presentation round-trip —
+            // same reasoning as getBandBatteryLevel(completion:): a weak
+            // capture would silently drop `completion` if the caller holds
+            // the Rolla instance only for the duration of this call.
+            self.prepareAndShow { result in
+                switch result {
+                case .success(let vc):
+                    vc.setupPresentation(transition: transition)
+                    viewController.present(vc, animated: true)
+                    // Invoked only now, after configure's `initialize` has
+                    // been dispatched AND answered — the Dart side queues the
+                    // navigation until its home widget settles.
+                    self.engineManager.openScreen(screen, completion: completion)
+
+                case .failure(let error):
+                    self.cleanup()
+                    // Presentation failures surface through the delegate
+                    // exactly as a failed show() would report them; the
+                    // completion additionally carries the typed status.
+                    self.delegate?.rollaDidFailWithError(self, error: error)
+                    if case .invalidPresentationContext = error {
+                        completion(.uiUnavailable)
+                    } else {
+                        completion(.unknownError)
+                    }
                 }
             }
         }
