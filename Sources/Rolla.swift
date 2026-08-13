@@ -276,59 +276,19 @@ public final class Rolla {
     }
 
     /// Open a specific SDK screen (``RollaScreen``), presenting the SDK UI
-    /// first when it is not already on screen.
+    /// first when needed — an already-presented UI navigates in place.
     ///
-    /// When the SDK UI is already presented, this navigates in place. When it
-    /// is not, the SDK UI is presented exactly as ``show(from:transition:)``
-    /// would present it — and on a warm engine (already running, e.g. after
-    /// ``warmUpEngine(completion:)`` or an earlier presentation) the
-    /// navigation happens **before** the reveal: the target screen settles
-    /// offscreen, so the presentation animation uncovers the final screen
-    /// with no SDK-internal transition playing under it, and a request that
-    /// resolves as anything other than ``RollaOpenScreenStatus/opened``
-    /// (e.g. a disabled screen) completes without showing the SDK UI at all.
-    /// Only a cold engine presents first, its loader covering start-up, and
-    /// navigates after — so there a mandatory startup step may still take
-    /// over once presented (``RollaOpenScreenStatus/blockedByGate``).
-    ///
-    /// Either way the opened screen is the **root of the SDK UI** — its back
-    /// affordance returns the user to the host app, exactly where they
-    /// tapped, never to an SDK Home they did not visit. Calling it again
-    /// replaces the root with the next screen.
-    ///
-    /// The result is always a typed ``RollaOpenScreenStatus``; the call never
-    /// throws and never fails silently:
-    ///
-    /// - ``RollaOpenScreenStatus/opened`` — the SDK UI is on the requested
-    ///   screen.
-    /// - ``RollaOpenScreenStatus/screenDisabled`` — the screen's module is in
-    ///   ``RollaConfiguration/disabledModules`` (e.g. ``RollaScreen/insights``
-    ///   with ``RollaDisabledModule/insights``). Nothing was opened.
-    /// - ``RollaOpenScreenStatus/blockedByGate`` — a mandatory startup step
-    ///   (onboarding, consent, permissions, data-source connection) is in
-    ///   front of the user and stays there.
-    /// - ``RollaOpenScreenStatus/uiUnavailable`` — the SDK UI could not be
-    ///   shown (the `from` view controller is not attached to a window) or
-    ///   never became ready to navigate.
-    /// - ``RollaOpenScreenStatus/superseded`` — a newer request replaced this
-    ///   one while waiting for the UI.
-    /// - ``RollaOpenScreenStatus/notInitialized`` /
-    ///   ``RollaOpenScreenStatus/unknownError`` — internal problems (see each
-    ///   case); neither is an expected runtime condition.
-    ///
-    /// When presentation itself fails, the failure is also reported to
-    /// ``RollaDelegate/rollaDidFailWithError(_:error:)`` exactly as a failed
-    /// ``show(from:)`` would report it — the completion status is additive,
-    /// not a replacement for the delegate.
+    /// The opened screen is the root of the SDK UI: back returns the user to
+    /// your app. Every outcome is a typed ``RollaOpenScreenStatus``, delivered
+    /// on the main thread; presentation failures are also reported to
+    /// ``RollaDelegate/rollaDidFailWithError(_:error:)``.
     ///
     /// - Parameters:
-    ///   - screen: The screen to open.
-    ///   - viewController: The view controller to present the SDK UI from
-    ///     when it is not already on screen. Must be attached to a window.
-    ///   - transition: The presentation animation used when this call has to
-    ///     present the SDK UI, same as ``show(from:transition:)``. Ignored
-    ///     when the SDK UI is already on screen.
-    ///   - completion: Delivers the outcome on the main thread.
+    ///   - screen: The SDK screen to open.
+    ///   - viewController: The view controller to present the SDK UI from.
+    ///   - transition: The presentation animation, same as
+    ///     ``show(from:transition:)``. Ignored when already on screen.
+    ///   - completion: Delivers the ``RollaOpenScreenStatus``.
     public func openScreen(
         _ screen: RollaScreen,
         from viewController: UIViewController,
@@ -439,6 +399,18 @@ public final class Rolla {
                         self.engineManager.setPresenting(false)
                         self.delegate?.rollaDidFailWithError(self, error: .engineFailedToStart)
                         completion(.unknownError)
+                        return
+                    }
+
+                    // The async round-trips above can outlive the host's
+                    // presentation context — re-validate before presenting,
+                    // like show() does at call time. Presenting from a
+                    // detached view controller no-ops silently and would
+                    // strand isPresenting forever.
+                    guard viewController.viewIfLoaded?.window != nil else {
+                        self.engineManager.setPresenting(false)
+                        self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
+                        completion(.uiUnavailable)
                         return
                     }
 

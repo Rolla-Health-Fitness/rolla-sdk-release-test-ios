@@ -357,12 +357,9 @@ final class RollaEngineManager {
         }
 
         channel.invokeMethod("openScreen", arguments: ["screen": screen.rawValue]) { response in
+            // `from` owns every mapping, error responses included.
             DispatchQueue.main.async {
-                if response is FlutterError {
-                    completion(.unknownError)
-                } else {
-                    completion(RollaOpenScreenStatus.from(response))
-                }
+                completion(RollaOpenScreenStatus.from(response))
             }
         }
     }
