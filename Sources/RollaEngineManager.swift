@@ -13,9 +13,38 @@ final class RollaEngineManager {
     private(set) var isReady: Bool = false
     private(set) var isPresenting: Bool = false
 
+    /// The freshest token pair this engine is known to hold, seeded by
+    /// successful `updateToken` pushes and by `onTokenRefreshed` deliveries
+    /// from the SDK's own internal rotation. Refresh tokens are single-use, so
+    /// once the SDK rotates, the pair frozen inside the host's
+    /// `RollaConfiguration` is consumed — re-sending it on every `configure`
+    /// would destroy the live refresh token and 401 the session. When present,
+    /// `configure` sends this register instead of the frozen configuration
+    /// values.
+    private struct LatestKnownTokens {
+        let token: String
+        let refreshToken: String?
+        let expiresIn: TimeInterval?
+        let seededAt: Date
+    }
+
     private var methodChannel: FlutterMethodChannel?
     private let channelName = "rolla_sdk/init"
     private var appDependencies: AppDependencies?
+    private var latestKnownTokens: LatestKnownTokens?
+
+    // The configuration token the current credential lineage started from.
+    // A configure carrying a DIFFERENT token means the host obtained fresh
+    // credentials (new login, new configuration) — the register descends from
+    // the previous lineage and must not shadow them.
+    private var sessionAnchorToken: String?
+
+    // Count of in-flight configure round-trips that CHANGED the anchor.
+    // While one is running, the Dart side may still be tearing down the
+    // previous session, and a late onTokenRefreshed from that session must
+    // not seed the register under the new anchor — it would be replayed to
+    // the new user on the next configure. Seeds are discarded while > 0.
+    private var anchorChangingConfigures = 0
 
     var onClose: ((String?) -> Void)?
     var onError: ((String, String) -> Void)?
@@ -97,6 +126,18 @@ final class RollaEngineManager {
             let refreshToken = args?["refreshToken"] as? String
             let expiresIn = args?["expiresIn"] as? Int
             let expiresInInterval: TimeInterval? = expiresIn.map { TimeInterval($0) }
+            // Never seed while an anchor-changing configure is in flight:
+            // this event may belong to the session being replaced (its
+            // refresh raced the switch) and must not be replayed to the new
+            // user.
+            if !token.isEmpty && anchorChangingConfigures == 0 {
+                latestKnownTokens = LatestKnownTokens(
+                    token: token,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresInInterval,
+                    seededAt: Date()
+                )
+            }
             onTokenRefreshed?(token, refreshToken, expiresInInterval)
             result(nil)
 
@@ -159,8 +200,20 @@ final class RollaEngineManager {
             return
         }
 
+        // Prefer the latest known pair over the frozen configuration values,
+        // but only while the configuration still carries the token the
+        // register descends from. A different token means new host
+        // credentials — send those and drop the outdated register.
+        let anchorChanged = config.token != sessionAnchorToken
+        let latest: LatestKnownTokens? = anchorChanged ? nil : latestKnownTokens
+        if anchorChanged {
+            latestKnownTokens = nil
+            sessionAnchorToken = config.token
+            anchorChangingConfigures += 1
+        }
+
         var args: [String: Any] = [
-            "token": config.token,
+            "token": latest?.token ?? config.token,
             "partnerId": config.partnerId,
             "environment": config.environment,
             "isModal": isModal,
@@ -174,12 +227,28 @@ final class RollaEngineManager {
             args["userId"] = userId
         }
 
-        if let refreshToken = config.refreshToken {
-            args["refreshToken"] = refreshToken
-        }
+        if let latest = latest {
+            if let refreshToken = latest.refreshToken {
+                args["refreshToken"] = refreshToken
+            }
+            // The register's TTL was captured when the pair was seeded; send
+            // what is left of it now so the Dart side doesn't restart the
+            // full window on every presentation. Capped at the original TTL —
+            // a wall clock moved backwards must not inflate it.
+            if let expiresIn = latest.expiresIn {
+                let remaining = min(Int(expiresIn - Date().timeIntervalSince(latest.seededAt)), Int(expiresIn))
+                if remaining > 0 {
+                    args["tokenExpiresIn"] = remaining
+                }
+            }
+        } else {
+            if let refreshToken = config.refreshToken {
+                args["refreshToken"] = refreshToken
+            }
 
-        if let expiresIn = config.tokenExpiresIn {
-            args["tokenExpiresIn"] = Int(expiresIn)
+            if let expiresIn = config.tokenExpiresIn {
+                args["tokenExpiresIn"] = Int(expiresIn)
+            }
         }
 
         if !config.disabledModules.isEmpty {
@@ -201,7 +270,14 @@ final class RollaEngineManager {
             }
         }
 
-        channel.invokeMethod("initialize", arguments: args) { response in
+        channel.invokeMethod("initialize", arguments: args) { [weak self] response in
+            // Settle the anchor change synchronously (the result callback
+            // arrives on the platform thread) — floored at zero, since
+            // destroy() resets the counter and a late callback from a
+            // destroyed engine must not push it negative.
+            if anchorChanged, let self = self {
+                self.anchorChangingConfigures = max(self.anchorChangingConfigures - 1, 0)
+            }
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
                     completion(.failure(.initializationFailed(error.message ?? "Unknown error")))
@@ -226,7 +302,32 @@ final class RollaEngineManager {
             args["expiresIn"] = Int(expiresIn)
         }
 
-        channel.invokeMethod("updateToken", arguments: args) { response in
+        // If the anchor moves while this round-trip is in flight (the host
+        // switched sessions), the response was evaluated by the OLD session —
+        // seeding it under the new anchor would replay these tokens to the
+        // wrong session on the next configure.
+        let anchorAtInvoke = sessionAnchorToken
+
+        channel.invokeMethod("updateToken", arguments: args) { [weak self] response in
+            // Seed synchronously (the result callback arrives on the platform
+            // thread, and channel messages are processed in order) — deferring
+            // the seed a runloop tick could let it overwrite a NEWER pair a
+            // just-processed onTokenRefreshed event seeded in between.
+            if !(response is FlutterError), let self = self {
+                // Remember the pushed pair so a later configure re-sends it
+                // instead of the frozen configuration values — but only when
+                // the SDK actually applied it (it ignores tokens older than
+                // the pair it already holds).
+                let applied = (response as? [String: Any])?["applied"] as? Bool ?? true
+                if applied && self.sessionAnchorToken == anchorAtInvoke {
+                    self.latestKnownTokens = LatestKnownTokens(
+                        token: token,
+                        refreshToken: refreshToken,
+                        expiresIn: expiresIn,
+                        seededAt: Date()
+                    )
+                }
+            }
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
                     completion(.failure(.initializationFailed(error.message ?? "Unknown error")))
@@ -341,40 +442,22 @@ final class RollaEngineManager {
         }
     }
 
-    /// Ask the SDK UI to navigate to a screen over the method channel.
-    ///
-    /// Resolves to a typed ``RollaOpenScreenStatus`` — every outcome,
-    /// including a channel error or an unparseable response, is encoded in
-    /// the status (as ``RollaOpenScreenStatus/unknownError``); nothing throws.
-    ///
-    /// Must only be invoked after `initialize` has been dispatched on the
-    /// channel: the Dart side queues the navigation until its home widget
-    /// settles, but only once the SDK entry point exists.
-    func openScreen(_ screen: RollaScreen, completion: @escaping (RollaOpenScreenStatus) -> Void) {
-        guard let channel = methodChannel else {
-            completion(.unknownError)
-            return
-        }
-
-        channel.invokeMethod("openScreen", arguments: ["screen": screen.rawValue]) { response in
-            // `from` owns every mapping, error responses included.
-            DispatchQueue.main.async {
-                completion(RollaOpenScreenStatus.from(response))
-            }
-        }
-    }
-
     func clearSession(completion: @escaping (Result<Void, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))
             return
         }
 
-        channel.invokeMethod("clearSession", arguments: nil) { response in
+        channel.invokeMethod("clearSession", arguments: nil) { [weak self] response in
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
                     completion(.failure(.initializationFailed(error.message ?? "Unknown error")))
                 } else {
+                    // The session's credentials are gone — forget the register
+                    // so the next configure sends its configuration's own
+                    // tokens.
+                    self?.latestKnownTokens = nil
+                    self?.sessionAnchorToken = nil
                     completion(.success(()))
                 }
             }
@@ -385,6 +468,9 @@ final class RollaEngineManager {
         methodChannel?.setMethodCallHandler(nil)
         methodChannel = nil
         appDependencies = nil
+        latestKnownTokens = nil
+        sessionAnchorToken = nil
+        anchorChangingConfigures = 0
         onClose = nil
         onError = nil
         onTokenRefreshed = nil
