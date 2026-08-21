@@ -14,13 +14,13 @@
 
 ### Both platforms
 
-- **[improvement] Answering the expired-session callback now recovers the session invisibly on native hosts.** When the SDK cannot refresh internally, it holds the failing request for up to 10 seconds while `onTokenExpired` (Android) / `rollaDidRequestTokenRefresh` (iOS) is being answered; an `updateToken()` push inside that window retries the request with the new tokens — no error state and no re-navigation, matching what Flutter hosts already got from the awaited callback. A host that leaves the callback unanswered fails fast again after the first window.
-
-- **[improvement] Stale host tokens can no longer overwrite newer rotated tokens.** Refresh tokens are single-use, so after the SDK refreshed internally, a host re-sending the pair it logged in with (the frozen `RollaConfiguration` re-sent on every `show()`, or an outdated `updateToken` push) used to destroy the live refresh token and leave the session returning 401s. Now the native wrappers re-send the freshest pair they have seen instead of the frozen configuration values, and the SDK ignores host-supplied tokens that are older (by JWT `exp`) than the pair it already holds — including across engine restarts. The stored token expiry is also validated against the token's own `exp` claim, so a re-sent `tokenExpiresIn` cannot delay the SDK's proactive refresh. Hosts that persist rotated pairs and answer `onTokenExpired` / `rollaDidRequestTokenRefresh` are unaffected; those remain the documented obligations.
+- **[improvement] Hardened token handling.** You can no longer break a session by passing outdated tokens — the SDK ignores anything older than what it already holds. And answering `onTokenExpired` (Android) / `rollaDidRequestTokenRefresh` (iOS) with `updateToken()` within 10 seconds now recovers the failing request invisibly, with no error state.
 
 - **[breaking] `showSettingsButton` is renamed to `showOptionsButton`, and the entry moved to the top right app bar actions.** The Settings button that was positioned at the very bottom of the Home scroll is now a three-dot options action at the trailing edge of the Home app bar, visible without scrolling. It opens the same bottom sheet of shortcuts as before, now titled "Options". The flag's meaning and default (`true`) are unchanged — so just rename the parameter on your `RollaConfiguration`.
 
 - **[feature] Bluetooth heart rate monitor support.** A standard Bluetooth heart rate monitor (Polar, Garmin, Wahoo and similar chest straps and arm bands) can now be connected from the activity setup screen and used as a workout's heart rate source instead of the Rolla Band. Previously connected monitors are remembered and reconnected automatically when in range, and one that drops mid-workout reconnects on its own. A workout tracked with a monitor does not use a paired Band at all.
+
+- **[feature] Open a specific SDK screen from the host app.** The new `openScreen` API (Flutter: `RollaSDK.openScreen`, iOS/Android wrappers: `openScreen`) opens the Insights feed, the activity history, the goals editor, the SDK Home screen, or the last-opened state (`resume`) directly — presenting the SDK UI first when it is not on screen, honoring an optional presentation transition. The opened screen is the root of the SDK UI: back returns the user straight to your app, and `home` restores the regular Home entry point without an engine restart. Every outcome is a typed `RollaOpenScreenStatus`; the SDK's mandatory startup steps (onboarding, consent, permissions, data-source connection) always take precedence over the request.
 
 - **[feature] Manual sleep logging and editing.** A user can log a night their wearable missed, or correct one it got wrong, from the sleep detail screen — adjusting the sleep window on the chart or through time fields, and assigning a stage to stretches the device did not record. A night with no stage detail can be logged as a single in-bed block and is shown as a sleep-duration clock. A manual entry replaces whatever was stored for that night and survives later device syncs, and sleep metrics, scores and the home screen refresh as soon as one is saved. Available for the last 7 days.
 
@@ -29,15 +29,21 @@
 - **[fix] Home totals update immediately after deleting an activity.** The Active Points and Active Calories tiles and the Activity score card now refetch as soon as an activity is deleted, instead of correcting only after a manual reload.
 - **[fix] Activity catalog search now ignores diacritics.** Searching is accent-insensitive (e.g. "trcanje" matches "Trčanje"), and the Yoga activity name is corrected in Bosnian/Serbian ("Joga" / "Јога").
 
+- **[fix] Steps, Move Hours and Active Points show the full statistics grid over 7d/30d/1y.** These metric detail pages showed a single "Total" card; they now show Avg, Min, Max and Score, computed over the days that have data.
+
 - **[improvement] Notification texts are now translated for every supported language.** The engagement and battery notification strings moved into the SDK's localization system, and date-of-birth fields now render month names in the selected language, including Latin-script Serbian.
 
 - **[feature] One-time historical data import when a source is connected.** After connecting Apple Health, Health Connect, Garmin or Oura, the user is offered a backfill of the date range the backend reports as available, and can accept it, skip it (it stays re-offerable), or start it later from the "Import history" action in Data Sources. Apple Health and Health Connect are read on-device with per-stage progress while the screen stays open; Garmin and Oura are backfilled by the backend and the screen just confirms the job started. An on-device import that was interrupted is picked up again from the same action.
+
+- **[fix] The Readiness and Activity screens no longer show an error while the user's session is being renewed.** They now wait for the renewal and load normally, and any error message they do show is translated into the selected language instead of appearing as technical text.
 
 ### Android
 
 - **[breaking] The Add-to-App public API types moved into sub-packages.** `Rolla` and `RollaListener` keep their package (`com.rolla.sdk.wrapper`); everything else moved, so imports need updating — no types were renamed and no behavior changed. `RollaConfiguration`, `RollaBranding`, `RollaLanguage`, `RollaThemeMode`, `RollaTransition`, `RollaDataSource` and `RollaDisabledModule` are now in `com.rolla.sdk.wrapper.config`; `RollaError` and `RollaCloseReason` in `com.rolla.sdk.wrapper.features.session`; the activity payloads in `…features.activity`, band payloads in `…features.band`, `RollaSyncResult` and `RollaPrimarySourceChanged` in `…features.sync`, `RollaGoalsChanged` in `…features.goals`, and `RollaProfileUpdated` in `…features.profile`. If you declare `RollaFlutterActivity` in your own manifest, it is now `com.rolla.sdk.wrapper.engine.RollaFlutterActivity`.
 
 - **[fix] Pairing a band again right after unpairing it now works.** Until now that attempt could quietly fail — the screen returned to the start of pairing with no message — and only succeeded after waiting around a minute.
+
+- **[fix] Pulse data no longer silently goes missing on Android.** An interrupted band transfer could leave heart rate unsynced for days — the sync appeared to succeed while steps and sleep kept updating. The transfer now recovers on its own within seconds, and any missed stretch is fetched by the next sync.
 
 ---
 
