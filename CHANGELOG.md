@@ -14,7 +14,7 @@
 
 ### Both platforms
 
-- **[fix] The loading indicator shown while the SDK starts now follows the host's `primaryColor` and `themeMode`.** Native iOS/Android hosts saw a neutral — and in dark mode teal-tinted — spinner between the host app and the SDK UI even when `RollaBranding.primaryColor` was set. It is now seeded from the configured primary color, so it matches the SDK's in-app indicators, and it follows the configured theme mode instead of always following the device. Hosts that set no color get a plain black (light) / white (dark) spinner.
+- **[fix] The loading indicator shown while the SDK starts now follows the host's `primaryColor` and `themeMode`.** Native iOS/Android hosts saw an off-brand spinner (mauve in light mode, teal in dark mode) between the host app and the SDK UI even when `RollaBranding.primaryColor` was set. It is now seeded from the configured primary color, matching the SDK's in-app indicators, and follows the configured theme mode instead of always following the device.
 
 ---
 
