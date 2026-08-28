@@ -16,6 +16,10 @@
 
 - **[fix] The loading indicator shown while the SDK starts now follows the host's `primaryColor` and `themeMode`.** Native iOS/Android hosts saw an off-brand spinner (mauve in light mode, teal in dark mode) between the host app and the SDK UI even when `RollaBranding.primaryColor` was set. It is now seeded from the configured primary color, matching the SDK's in-app indicators, and follows the configured theme mode instead of always following the device.
 
+### Android
+
+- **[fix] Swiping the host app away from Recents mid-workout no longer resumes a stale SDK session on the next launch.** While a GPS or Bluetooth workout (or a band firmware update) is running, the SDK's foreground service keeps the app process alive through a Recents swipe, so the cached Flutter engine survived and the next `show()` re-presented the in-progress activity screen instead of a fresh Home with the resume-activity prompt. The swipe now stops workout tracking and tears the engine down, so the next launch behaves like a cold start and the interrupted activity is offered for Continue / Save / Discard, as on iOS. Closing the SDK with the back button and re-opening it in the same session still resumes seamlessly.
+
 ---
 
 ## 0.1.14
