@@ -10,21 +10,35 @@
 
 ---
 
-## 0.1.15 [Draft]
+## 0.1.16 [Draft]
+
+> **No documented changes yet.** When adding a new changelog entry, follow the pattern from previous versions in this file and see [`docs/changelog/CHANGELOG_WORKFLOW.md`](docs/changelog/CHANGELOG_WORKFLOW.md). Delete this note when you add the first bullet.
+
+---
+
+## 0.1.15
 
 ### Both platforms
 
-- **[feature] Rolla notifications now identify themselves and name their tap destination.** Every notification the SDK shows carries a structured payload, and the new `Rolla.notificationTarget(...)` resolver (iOS and Android wrappers) turns the tap your app receives into a typed destination: `null` for a notification that is not Rolla's, an app-settings request for the permission warning, or a `RollaScreen` to pass straight to `openScreen`. The inactivity reminder targets Insights (Home when the insights module is disabled), the band battery warning targets Home, and both Android ongoing workout notifications ("Workout in progress" and "Location Tracking" — the latter previously did nothing when tapped) target `resume`, the live workout. Flutter integrations route taps on the SDK-shown notifications automatically, including a tap that cold-launched the app; the two Android workout notifications are posted natively and resolve through `notificationTarget` in native hosts.
-- **[improvement] Swimming activities now show pace per 100 m (per 100 yd for imperial units) instead of per km.** Swim summaries also display distance and average pace when the activity carries that data, such as swims imported from Garmin.
+- **[feature] Rolla notifications now identify themselves and name their tap destination.** Every notification the SDK shows carries a structured payload, and the new `Rolla.notificationTarget(...)` resolver (iOS and Android wrappers) turns the tap your app receives into a typed destination: `null`/`nil` for a notification that is not Rolla's, an app-settings request for the background-location permission warning, or a `RollaScreen` to pass straight to `openScreen`. The inactivity reminder targets Insights (Home when the insights module is disabled), the band battery warning targets Home, and both Android ongoing workout notifications ("Workout in progress" and "Location Tracking" — the latter previously did nothing when tapped) target `resume`, the live workout. Flutter integrations route taps on the SDK-shown notifications automatically, including a tap that cold-launched the app; the two Android workout notifications are posted natively and resolve through `notificationTarget` in native hosts.
 
 - **[fix] The loading indicator shown while the SDK starts now follows the host's `primaryColor` and `themeMode`.** Native iOS/Android hosts saw an off-brand spinner (mauve in light mode, teal in dark mode) between the host app and the SDK UI even when `RollaBranding.primaryColor` was set. It is now seeded from the configured primary color, matching the SDK's in-app indicators, and follows the configured theme mode instead of always following the device.
 
+- **[fix] Manually added activities now count toward the daily Active Points and Active Calories totals.** Previously a manual activity kept its own points, but the daily totals on Home never included them.
+
+- **[improvement] Swimming activities now show pace per 100 m (per 100 yd for imperial units) instead of per km.** Swim summaries also display distance and average pace when the activity carries that data, such as swims imported from Garmin.
+
+- **[improvement] General bugfixes and stability improvements.**
+
 ### Android
 
-- **[fix] Swiping the host app away from Recents mid-workout no longer resumes a stale SDK session on the next launch.** While a GPS or Bluetooth workout (or a band firmware update) is running, the SDK's foreground service keeps the app process alive through a Recents swipe, so the cached Flutter engine survived and the next `show()` re-presented the in-progress activity screen instead of a fresh Home with the resume-activity prompt. The swipe now stops workout tracking and tears the engine down, so the next launch behaves like a cold start and the interrupted activity is offered for Continue / Save / Discard, as on iOS. Closing the SDK with the back button and re-opening it in the same session still resumes seamlessly.
-- **[fix] Manually added activities now count toward the daily Active Points and Active Calories totals.** Previously a manual activity kept its own points, but the daily totals on Home never included them.
-- **[fix] `openScreen` now brings an already-presented SDK UI back to the front when the host's own activities cover it.** Previously the navigation succeeded — the status reported `opened` — but happened invisibly behind the covering activity, leaving the user where they were. The common trigger is a notification tap, which always launches a host activity on top of the presenting SDK.
-- **[fix] Scheduled reminders (the inactivity reminder and the evening battery warning) never displayed.** The broadcast receivers flutter_local_notifications fires scheduled notifications through were missing from every consuming app's merged manifest, so the alarms were silently dropped. The SDK now declares them itself — no host change needed, and a host that already declares these receivers with the standard attributes (`android:exported="false"`, per the flutter_local_notifications README) merges cleanly — along with `RECEIVE_BOOT_COMPLETED` so pending reminders survive a reboot. Scheduling also falls back to an inexact alarm when the app may not schedule exact alarms (`SCHEDULE_EXACT_ALARM` not declared or not granted — denied by default on Android 14+), instead of silently dropping the reminder.
+- **[fix] Swiping the host app away from Recents mid-workout no longer resumes a stale SDK session on the next launch.** While a GPS or Bluetooth workout (or a band firmware update) is running, the SDK's foreground service keeps the app process alive through a Recents swipe, so the cached engine survived and the next `show()` re-presented the in-progress activity screen instead of a fresh Home with the resume-activity prompt. The swipe now stops workout tracking and tears the engine down, so the next launch behaves like a cold start and the interrupted activity is offered for Continue / Save / Discard, as on iOS. Closing the SDK with the back button and re-opening it in the same session still resumes seamlessly.
+
+- **[fix] `openScreen` now brings an already-presented SDK UI back to the front when the host's own activities cover it.** Previously the navigation succeeded — the status reported `OPENED` — but happened invisibly behind the covering activity, leaving the user where they were. The common trigger is a notification tap, which always launches a host activity on top of the presenting SDK.
+
+- **[fix] Scheduled reminders (the inactivity reminder and the evening battery warning) never displayed.** The broadcast receivers `flutter_local_notifications` fires scheduled notifications through were missing from every consuming app's merged manifest, so the alarms were silently dropped. The SDK now declares them itself — no host change needed, and a host that already declares these receivers with the standard attributes (`android:exported="false"`, per the `flutter_local_notifications` README) merges cleanly — along with `RECEIVE_BOOT_COMPLETED` so pending reminders survive a reboot. Scheduling also falls back to an inexact alarm when the app may not schedule exact alarms (`SCHEDULE_EXACT_ALARM` not declared or not granted — denied by default on Android 14+), instead of silently dropping the reminder.
+
+- **[fix] Steps, sleep and HRV data no longer silently go missing on Android.** The failure fixed for pulse in 0.1.14 could hit every other band transfer too: an interrupted transfer froze the sync on that stage, and a corrupt band record could push the sync window a day or two into the future, making the metric vanish until the clock caught up. Every band transfer now recovers on its own within seconds, a corrupt record can no longer push the sync window into the future, and a transfer cut short defers its remainder to the next sync instead of skipping it.
 
 ---
 
