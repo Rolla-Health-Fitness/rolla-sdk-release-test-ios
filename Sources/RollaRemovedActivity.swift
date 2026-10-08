@@ -3,10 +3,11 @@ import Foundation
 /// Why an activity's record ceased to exist when
 /// ``RollaDelegate/rollaDidRemoveActivity(_:activity:)`` fired.
 public enum RollaActivityRemovalReason: String {
-    /// The activity started but was never saved: the session was discarded
-    /// during crash recovery — the user chose Discard on the recovery prompt,
-    /// or the SDK silently discarded a session that recorded no data. Covers
-    /// what hosts commonly expect as "activity canceled".
+    /// The activity started but was never saved: the user chose Discard on the
+    /// dashboard when stopping a session that looked incomplete (too short, or
+    /// no distance), the user chose Discard on the crash-recovery prompt, or
+    /// the SDK silently discarded a session that recorded no data. Covers what
+    /// hosts commonly expect as "activity canceled".
     case canceled
     /// A saved (possibly already uploaded) activity the user deleted from the
     /// activity review screen. Fires only once the backend confirmed the

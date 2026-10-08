@@ -503,8 +503,10 @@ public final class Rolla {
     /// ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss), events keep
     /// flowing after the SDK UI closes — a late `uploaded` activity phase must
     /// still reach the host, and a host that only ever runs headless calls
-    /// still gets events. Cleared only by ``destroyEngine()`` or when another
-    /// Rolla instance wires itself (last writer wins, matching the
+    /// still gets events. The token callbacks live here for the same reason:
+    /// a headless call can rotate or lose the session, and the host must hear
+    /// about it with no UI shown. Cleared only by ``destroyEngine()`` or when
+    /// another Rolla instance wires itself (last writer wins, matching the
     /// presentation-callback semantics).
     ///
     /// `self` is captured strongly on purpose: hosts often create a Rolla
@@ -557,6 +559,21 @@ public final class Rolla {
         engineManager.onProfileUpdated = { update in
             self.delegate?.rollaDidUpdateProfile(self, update: update)
         }
+
+        // A refresh token is single-use, so a rotation the host never learns
+        // about leaves it holding a dead pair. `onTokenExpired` answers whether
+        // a delegate was there to receive the request; without one the Dart
+        // side fails fast instead of waiting for an `updateToken` push that
+        // can never come.
+        engineManager.onTokenRefreshed = { token, refreshToken, expiresIn in
+            self.delegate?.rollaDidRefreshToken(self, token: token, refreshToken: refreshToken, expiresIn: expiresIn)
+        }
+
+        engineManager.onTokenExpired = {
+            guard let delegate = self.delegate else { return false }
+            delegate.rollaDidRequestTokenRefresh(self)
+            return true
+        }
     }
 
     private func setupCallbacks() {
@@ -572,16 +589,6 @@ public final class Rolla {
             guard let self else { return }
             self.delegate?.rollaDidFailWithError(self, error: .flutterError(code: code, message: message))
         }
-
-        engineManager.onTokenRefreshed = { [weak self] token, refreshToken, expiresIn in
-            guard let self else { return }
-            self.delegate?.rollaDidRefreshToken(self, token: token, refreshToken: refreshToken, expiresIn: expiresIn)
-        }
-
-        engineManager.onTokenExpired = { [weak self] in
-            guard let self else { return }
-            self.delegate?.rollaDidRequestTokenRefresh(self)
-        }
     }
 
     private func cleanup() {
@@ -590,7 +597,5 @@ public final class Rolla {
         engineManager.setPresenting(false)
         engineManager.onClose = nil
         engineManager.onError = nil
-        engineManager.onTokenRefreshed = nil
-        engineManager.onTokenExpired = nil
     }
 }

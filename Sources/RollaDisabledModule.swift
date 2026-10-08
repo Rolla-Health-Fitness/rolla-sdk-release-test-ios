@@ -6,7 +6,9 @@ import Foundation
 /// to disable that module everywhere in the SDK UI.
 public enum RollaDisabledModule: String {
     case bloodPressure
+    case groupActivities
     case insights
     case leaderboards
+    case nutrition
     case weight
 }

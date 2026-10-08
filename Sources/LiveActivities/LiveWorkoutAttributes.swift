@@ -1,11 +1,17 @@
 import Foundation
 import ActivityKit
 
-/// Shared ActivityKit attributes for the `liveworkout` Live Activity.
+/// Shared ActivityKit attributes for the workout Live Activity.
 ///
-/// This file must be compiled into BOTH targets:
-/// - Runner (so the app can start/update/end the Live Activity)
-/// - liveworkout (so the widget can render it)
+/// ActivityKit serializes these attributes and `ContentState` (both Codable) in the app
+/// process and WidgetKit deserializes them inside the host app's widget extension, so a type
+/// with the same name and the same Codable shape must exist in both binaries: the SDK copy
+/// (compiled into the `RollaSDK` module for native hosts, the `rolla_sdk` plugin for Flutter
+/// hosts) and the host app's widget-extension copy. The module the type lives in does not
+/// matter, the fields do: a non-optional field the widget expects but the app did not encode
+/// fails decoding — a default value such as `= false` does not help — and the Live Activity
+/// is never shown (a mismatched later update is dropped). Keep the copies byte-identical so
+/// that cannot happen.
 @available(iOS 16.1, *)
 struct LiveWorkoutAttributes: ActivityAttributes {
     public struct Metric: Codable, Hashable {
@@ -16,7 +22,7 @@ struct LiveWorkoutAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var metrics: [Metric]
         /// Determines how the widget should interpret/render `metrics[1]` (e.g. icon choice).
-        /// Expected values: "distance" | "activePoints".
+        /// Expected values: "distance" | "speed" | "activePoints".
         var secondaryMetricKind: String?
         /// Timer base date used for `Text(date, style: .timer)` so the Live Activity timer
         /// matches the in-app dashboard duration (pause-aware elapsed).

@@ -191,5 +191,6 @@ private extension LocationData {
         self.speed = location.speed
         self.course = location.course
         self.timestamp = location.timestamp
+        self.isSegmentStart = false
     }
 }

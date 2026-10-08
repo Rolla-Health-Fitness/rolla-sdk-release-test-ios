@@ -82,6 +82,10 @@ final class AppDependencies {
         RollaPermissionsHandler()
     }()
 
+    lazy var groupInstallationHandler: GroupInstallationHandler = {
+        GroupInstallationHandler()
+    }()
+
     lazy var phonePedometerHandler: PhonePedometerHandler = {
         PhonePedometerHandler(flutterApi: phonePedometerFlutterApi)
     }()
@@ -211,6 +215,11 @@ final class AppDependencies {
         RollaPermissionsHostApiSetup.setUp(
             binaryMessenger: binaryMessenger,
             api: rollaPermissionsHandler
+        )
+
+        GroupInstallationHostApiSetup.setUp(
+            binaryMessenger: binaryMessenger,
+            api: groupInstallationHandler
         )
 
         PhonePedometerHostApiSetup.setUp(

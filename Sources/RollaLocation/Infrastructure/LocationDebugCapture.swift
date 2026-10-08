@@ -114,15 +114,18 @@ public final class LocationDebugCapture: @unchecked Sendable {
             "ts": Self.iso8601(Date()),
             "transition": transition
         ]
-        for (k, v) in details { extra[k] = v }
+        // Callers pass raw computed values (implied speeds, ages); a
+        // non-finite Double must not take the whole line — or the writer — down.
+        for (k, v) in details { extra[k] = Self.sanitizeAny(v) }
         write(evt: "state", extra: extra)
     }
 
     // MARK: - New decision-level events
 
     /// Single gate evaluation. `gate` is one of `"A"`, `"B"`, `"C"`,
-    /// `"warmup"`, `"pending-confirm"`, `"emit-threshold"`. `reason` is
-    /// `"pass"` on success or the suppression reason string on failure.
+    /// `"warmup"`, `"lockout"`, `"pending-confirm"`, `"emit-threshold"`.
+    /// `reason` is `"pass"` on success or the suppression reason string on
+    /// failure.
     public func logGate(
         gate: String,
         passed: Bool,
@@ -203,8 +206,8 @@ public final class LocationDebugCapture: @unchecked Sendable {
     }
 
     /// Fired whenever `consecutiveGateRejections` changes. `gate` is
-    /// `"A"`, `"B"`, `"C"`, `"reset"`, `"rebootstrap"`, or
-    /// `"rebootstrap-suppressed"`.
+    /// `"A"`, `"B"`, `"C"`, `"warmup"`, `"pending"`, `"reset"`, or
+    /// `"lockout"`.
     public func logRejectionCounter(old: Int, new: Int, gate: String) {
         guard Self.isEnabled else { return }
         write(evt: "rejection-counter", extra: [

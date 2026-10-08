@@ -8,6 +8,11 @@ public struct LocationData: Sendable {
     public let speed: Double
     public let course: Double
     public let timestamp: Date
+    /// Output annotation set by the processor on the first emit after track
+    /// continuity was lost (e.g. a dropped vehicle segment): this point starts
+    /// a new route segment and must not be joined to the previous emit. Always
+    /// `false` on raw fixes; not part of `==`, which compares the fix itself.
+    public let isSegmentStart: Bool
 
     public init(
         coordinate: Coordinate,
@@ -16,7 +21,8 @@ public struct LocationData: Sendable {
         verticalAccuracy: Double,
         speed: Double,
         course: Double,
-        timestamp: Date
+        timestamp: Date,
+        isSegmentStart: Bool = false
     ) {
         self.coordinate = coordinate
         self.altitude = altitude
@@ -25,6 +31,7 @@ public struct LocationData: Sendable {
         self.speed = speed
         self.course = course
         self.timestamp = timestamp
+        self.isSegmentStart = isSegmentStart
     }
 }
 

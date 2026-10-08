@@ -80,7 +80,8 @@ extension LocationHostApiHandler: LocationHostApi {
                         latitude: locationData.coordinate.latitude,
                         longitude: locationData.coordinate.longitude,
                         altitude: locationData.altitude,
-                        timestamp: Int64(locationData.timestamp.timeIntervalSince1970)
+                        timestamp: Int64(locationData.timestamp.timeIntervalSince1970),
+                        isSegmentStart: locationData.isSegmentStart
                     )
                     
                     await MainActor.run {

@@ -99,7 +99,7 @@ final class LiveWorkoutBridge: NSObject {
     /// - startEpochMs: Int64 - Workout start timestamp in milliseconds
     /// - timerStartEpochMs: Int64 - Timer base timestamp (pause-aware)
     /// - metrics: [[String: Any]] - Array of {label, value} metric dicts
-    /// - secondaryMetricKind: String? - "distance" or "activePoints"
+    /// - secondaryMetricKind: String? - "distance", "speed", or "activePoints"
     /// - heartRateBpm: Int? - Current heart rate
     /// - maxHeartRateBpm: Int? - User's max heart rate
     /// - isBandConnected: Bool - Band connection status
@@ -209,7 +209,7 @@ final class LiveWorkoutBridge: NSObject {
     /// - activityId: String - ID of the workout to update
     /// - timerStartEpochMs: Int64 - Updated timer base (for pause/resume)
     /// - metrics: [[String: Any]] - Updated metrics
-    /// - secondaryMetricKind: String? - "distance" or "activePoints"
+    /// - secondaryMetricKind: String? - "distance", "speed", or "activePoints"
     /// - heartRateBpm: Int? - Updated heart rate
     /// - maxHeartRateBpm: Int? - User's max heart rate
     /// - isPaused: Bool - Whether workout is paused

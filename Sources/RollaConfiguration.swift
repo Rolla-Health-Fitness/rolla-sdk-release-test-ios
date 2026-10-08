@@ -17,6 +17,12 @@ public struct RollaConfiguration {
     public let branding: RollaBranding?
     public let showOptionsButton: Bool
     public let showGoalsSection: Bool
+    /// Custom URL scheme the Rolla backend redirects to at the end of a
+    /// cloud-source OAuth flow (Garmin/Oura). Must match the `app_scheme`
+    /// configured for your partner on the Rolla backend. When set, those
+    /// connects run in an in-app auth session that returns to the app
+    /// automatically. nil (default) opens them in the external browser.
+    public let oauthCallbackScheme: String?
 
     public init(
         token: String,
@@ -30,7 +36,8 @@ public struct RollaConfiguration {
         language: RollaLanguage? = nil,
         branding: RollaBranding? = nil,
         showOptionsButton: Bool = true,
-        showGoalsSection: Bool = false
+        showGoalsSection: Bool = false,
+        oauthCallbackScheme: String? = nil
     ) {
         self.token = token
         self.refreshToken = refreshToken
@@ -44,6 +51,7 @@ public struct RollaConfiguration {
         self.branding = branding
         self.showOptionsButton = showOptionsButton
         self.showGoalsSection = showGoalsSection
+        self.oauthCallbackScheme = oauthCallbackScheme
     }
 }
 

@@ -48,12 +48,15 @@ final class RollaEngineManager {
 
     var onClose: ((String?) -> Void)?
     var onError: ((String, String) -> Void)?
-    var onTokenRefreshed: ((String, String?, TimeInterval?) -> Void)?
-    var onTokenExpired: (() -> Void)?
 
     // Host-event closures. Unlike the presentation callbacks above (wired on
     // show, cleared on dismiss), these are wired for the engine's lifetime by
-    // Rolla.wireHostEventCallbacks() and cleared only in destroy().
+    // Rolla.wireHostEventCallbacks() and cleared only in destroy(). The token
+    // pair belongs here: a headless call can rotate or lose the session, so
+    // delivery must not depend on the SDK UI being presented. `onTokenExpired`
+    // returns whether a host delegate received the request.
+    var onTokenRefreshed: ((String, String?, TimeInterval?) -> Void)?
+    var onTokenExpired: (() -> Bool)?
     var onActivityCompleted: ((RollaCompletedActivity) -> Void)?
     var onActivityStarted: ((RollaStartedActivity) -> Void)?
     var onActivityRemoved: ((RollaRemovedActivity) -> Void)?
@@ -142,8 +145,10 @@ final class RollaEngineManager {
             result(nil)
 
         case "onTokenExpired":
-            onTokenExpired?()
-            result(nil)
+            // Answer whether a host delegate heard the request. Dart skips its
+            // updateToken wait when nobody did — no push can ever arrive.
+            let handled = onTokenExpired?() ?? false
+            result(["handled": handled])
 
         case "onActivityCompleted":
             onActivityCompleted?(RollaCompletedActivity.from(call.arguments))
@@ -225,6 +230,10 @@ final class RollaEngineManager {
 
         if let userId = config.userId {
             args["userId"] = userId
+        }
+
+        if let oauthCallbackScheme = config.oauthCallbackScheme {
+            args["oauthCallbackScheme"] = oauthCallbackScheme
         }
 
         if let latest = latest {

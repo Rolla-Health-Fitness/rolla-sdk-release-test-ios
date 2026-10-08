@@ -9,13 +9,17 @@ public enum RollaSyncOutcome: String {
     /// The sync ran to completion. ``RollaSyncResult/hasNewData`` says whether
     /// anything new was uploaded.
     case success
-    /// Some data uploaded before an error stopped the rest. Reserved for a
-    /// future per-stage-aware sync; not emitted today.
+    /// The sync ran, at least one stream uploaded new data and at least one
+    /// stream failed — see ``RollaSyncResult/streamResults``;
+    /// ``RollaSyncResult/error`` is the first failure.
+    /// ``RollaSyncResult/hasNewData`` is always `true`.
     case partial
     /// Nothing was synced and that's expected — see
     /// ``RollaSyncResult/skipReason``. Not an error.
     case skipped
-    /// The sync started but failed — see ``RollaSyncResult/error``.
+    /// The sync started but failed — see ``RollaSyncResult/error``. Also the
+    /// outcome when streams failed and none uploaded new data;
+    /// ``RollaSyncResult/streamResults`` then lists every stream the sync attempted.
     case failure
     /// The SDK returned an outcome this version does not recognize (forward-compat).
     case unknown
@@ -82,6 +86,69 @@ public enum RollaSyncSkipReason: String {
     case offline
     /// The SDK returned a reason this version does not recognize (forward-compat).
     case unknown
+}
+
+// MARK: - Per-stream results
+
+/// A health-data stream a sync uploads. Raw values match the
+/// ``RollaSyncedHealthData`` property names, so a stream's summary is
+/// `syncedData.<name>`. A band sync attempts heart rate, HRV, steps and sleep;
+/// Apple Health attempts all seven. Later versions may add cases, so keep a
+/// `default` branch when switching over it.
+public enum RollaSyncStream: String {
+    /// Heart rate (``RollaSyncedHealthData/heartRate``).
+    case heartRate
+    /// Heart-rate variability (``RollaSyncedHealthData/hrv``).
+    case hrv
+    /// Steps and active calories (``RollaSyncedHealthData/steps``).
+    case steps
+    /// Sleep stages (``RollaSyncedHealthData/sleep``).
+    case sleep
+    /// Weight (``RollaSyncedHealthData/weight``). Apple Health only.
+    case weight
+    /// Blood pressure (``RollaSyncedHealthData/bloodPressure``). Apple Health only.
+    case bloodPressure
+    /// Workouts (``RollaSyncedHealthData/workouts``). Apple Health only.
+    case workouts
+    /// The SDK returned a stream this version does not recognize (forward-compat).
+    case unknown
+}
+
+/// What happened to one stream during a sync. Later versions may add cases,
+/// so keep a `default` branch when switching over it.
+public enum RollaSyncStreamStatus: String {
+    /// New data for this stream reached the server; its summary is in
+    /// ``RollaSyncResult/syncedData``.
+    case uploaded
+    /// The stream was read and held nothing new. A type whose read access is
+    /// withheld looks the same (HealthKit hides read denials).
+    case noNewData
+    /// Reading the stream from its source, or uploading it, failed — see
+    /// ``RollaSyncStreamResult/error``. What did not upload is retried on the
+    /// next sync.
+    case failed
+    /// The SDK returned a status this version does not recognize (forward-compat).
+    case unknown
+}
+
+/// One stream's entry in ``RollaSyncResult/streamResults``.
+public struct RollaSyncStreamResult {
+    /// The stream this entry reports on.
+    public let stream: RollaSyncStream
+    /// What happened to ``stream``.
+    public let status: RollaSyncStreamStatus
+    /// Why the stream failed (``RollaSyncStreamStatus/failed`` only). Diagnostic
+    /// text — not user-facing, not stable, do not parse.
+    public let error: String?
+
+    static func from(_ map: [String: Any]?) -> RollaSyncStreamResult? {
+        guard let map = map else { return nil }
+        return RollaSyncStreamResult(
+            stream: RollaSyncStream(rawValue: map["stream"] as? String ?? "") ?? .unknown,
+            status: RollaSyncStreamStatus(rawValue: map["status"] as? String ?? "") ?? .unknown,
+            error: map["error"] as? String
+        )
+    }
 }
 
 // MARK: - Synced health data
@@ -269,7 +336,8 @@ public struct RollaSyncedHealthData {
 ///
 /// ``hasNewData`` is meaningful only for ``RollaSyncOutcome/success`` /
 /// ``RollaSyncOutcome/partial``; ``skipReason`` is set only for
-/// ``RollaSyncOutcome/skipped``; ``error`` only for ``RollaSyncOutcome/failure``.
+/// ``RollaSyncOutcome/skipped``; ``error`` only for ``RollaSyncOutcome/failure``
+/// and ``RollaSyncOutcome/partial``.
 public struct RollaSyncResult {
     /// The terminal outcome.
     public let outcome: RollaSyncOutcome
@@ -277,20 +345,23 @@ public struct RollaSyncResult {
     public let hasNewData: Bool
     /// Which source the sync ran against.
     public let source: RollaSyncSource
-    /// The device-clock time this sync began running. Set on `.success` and
-    /// `.failure`, with two nil cases: `.skipped` results (nothing ran), and
-    /// the results of overlapping syncs, where the SDK reports no start time
-    /// rather than a possibly wrong one. Subtract it from ``lastSyncAt`` to
-    /// get the sync's duration.
+    /// The device-clock time this sync began running. Set on `.success`,
+    /// `.partial` and `.failure`, with two nil cases: `.skipped` results
+    /// (nothing ran), and the results of overlapping syncs, where the SDK
+    /// reports no start time rather than a possibly wrong one. Subtract it
+    /// from ``lastSyncAt`` to get the sync's duration.
     public let startedAt: Date?
-    /// When this sync completed on the device. Present only on a successful
-    /// sync (nil for `.skipped` / `.failure`). A client-side completion time,
-    /// consistent across every source — suitable for a "Last synced at …"
+    /// When this sync completed on the device. Present on `.success` and
+    /// `.partial` (nil for `.skipped` / `.failure`). A client-side completion
+    /// time, consistent across every source — suitable for a "Last synced at …"
     /// label; not a backend-confirmed write time.
     public let lastSyncAt: Date?
     /// Why the sync did nothing. Non-nil only when ``outcome`` is ``RollaSyncOutcome/skipped``.
     public let skipReason: RollaSyncSkipReason?
-    /// The error message if the sync failed. Non-nil only when ``outcome`` is ``RollaSyncOutcome/failure``.
+    /// The error message. Non-nil only when ``outcome`` is
+    /// ``RollaSyncOutcome/failure`` or ``RollaSyncOutcome/partial``. When
+    /// streams failed, this is the first failed stream's error; each failed
+    /// stream's own error is in ``streamResults``.
     public let error: String?
 
     /// The health data this sync uploaded — per-stream summaries always, raw
@@ -301,6 +372,14 @@ public struct RollaSyncResult {
     /// So `hasNewData == false` does not imply `syncedData == nil`.
     public let syncedData: RollaSyncedHealthData?
 
+    /// One entry per stream this sync attempted, in upload order: heart rate,
+    /// HRV, steps and sleep, then weight, blood pressure and workouts for
+    /// Apple Health. Empty when no stream ran: `.skipped` results, a failure
+    /// before any stream started, and Garmin/Oura content refreshes. When
+    /// ``syncedData`` is present, every stream reported
+    /// ``RollaSyncStreamStatus/uploaded`` has its summary there.
+    public let streamResults: [RollaSyncStreamResult]
+
     public init(
         outcome: RollaSyncOutcome,
         hasNewData: Bool,
@@ -309,7 +388,8 @@ public struct RollaSyncResult {
         lastSyncAt: Date? = nil,
         skipReason: RollaSyncSkipReason? = nil,
         error: String? = nil,
-        syncedData: RollaSyncedHealthData? = nil
+        syncedData: RollaSyncedHealthData? = nil,
+        streamResults: [RollaSyncStreamResult] = []
     ) {
         self.outcome = outcome
         self.hasNewData = hasNewData
@@ -319,6 +399,7 @@ public struct RollaSyncResult {
         self.skipReason = skipReason
         self.error = error
         self.syncedData = syncedData
+        self.streamResults = streamResults
     }
 
     /// Whether the sync ran to completion (success or partial).
@@ -351,8 +432,10 @@ public struct RollaSyncResult {
     /// Build a result from the method-channel wire map
     /// `{ "outcome": String, "hasNewData": Bool, "source": String,
     ///    "startedAt": String?, "lastSyncAt": String?, "skipReason": String?,
-    ///    "error": String?, "syncedData": [String: Any]? }`.
-    /// Unknown enum strings map to their `.unknown` case.
+    ///    "error": String?, "syncedData": [String: Any]?,
+    ///    "streamResults": [[String: Any]]? }`.
+    /// Unknown enum strings map to their `.unknown` case; a missing
+    /// `streamResults` is an empty list.
     static func from(_ response: Any?) -> RollaSyncResult {
         guard let map = response as? [String: Any] else {
             return RollaSyncResult(outcome: .unknown, hasNewData: false, source: .unknown)
@@ -373,6 +456,9 @@ public struct RollaSyncResult {
             lastSyncAt = parseDate(raw)
         }
         let syncedData = RollaSyncedHealthData.from(map["syncedData"])
+        let streamResults = (map["streamResults"] as? [[String: Any]] ?? []).compactMap {
+            RollaSyncStreamResult.from($0)
+        }
         return RollaSyncResult(
             outcome: outcome,
             hasNewData: hasNewData,
@@ -381,7 +467,8 @@ public struct RollaSyncResult {
             lastSyncAt: lastSyncAt,
             skipReason: skipReason,
             error: error,
-            syncedData: syncedData
+            syncedData: syncedData,
+            streamResults: streamResults
         )
     }
 }

@@ -16,6 +16,12 @@ public enum RollaScreen: String {
     /// ``RollaConfiguration/disabledModules`` the open resolves as
     /// ``RollaOpenScreenStatus/screenDisabled``.
     case insights
+    /// The Nutrition tab: today's calorie budget, what has been logged
+    /// against it, and hydration. Requires the nutrition module to be
+    /// enabled; with ``RollaDisabledModule/nutrition`` in
+    /// ``RollaConfiguration/disabledModules`` the open resolves as
+    /// ``RollaOpenScreenStatus/screenDisabled``.
+    case nutrition
     /// The SDK UI exactly as the user left it — the last opened screen, or
     /// Home on a fresh engine. Performs no navigation and always resolves as
     /// ``RollaOpenScreenStatus/opened``.

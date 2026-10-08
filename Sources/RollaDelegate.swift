@@ -74,10 +74,11 @@ public protocol RollaDelegate: AnyObject {
     func rollaDidStartActivity(_ rolla: Rolla, activity: RollaStartedActivity)
 
     /// Called when an activity's record is removed without a kept result —
-    /// ``RollaRemovedActivity/reason`` says why: `canceled` (a crash-recovery
-    /// discard of a session that was never saved — the commonly expected
-    /// "activity canceled" case) or `deleted` (the user deleted a saved
-    /// activity from the review screen, backend-confirmed).
+    /// ``RollaRemovedActivity/reason`` says why: `canceled` (a session that was
+    /// never saved — discarded from the dashboard on stop or from the
+    /// crash-recovery prompt; the commonly expected "activity canceled" case)
+    /// or `deleted` (the user deleted a saved activity from the review screen,
+    /// backend-confirmed).
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance delivering the event.
@@ -99,6 +100,11 @@ public protocol RollaDelegate: AnyObject {
     /// that recorded no data, and syncs that overlapped another sync
     /// (concurrent UI syncs or a concurrent headless sync) — never wrong or
     /// double-reported data.
+    ///
+    /// ``RollaSyncResult/streamResults`` and the outcome follow the same rules
+    /// as the headless result, so a UI sync where a stream failed is reported
+    /// as `.partial` (or `.failure` when nothing uploaded), even while the SDK
+    /// UI itself shows the sync as complete.
     ///
     /// - Parameters:
     ///   - rolla: The Rolla instance delivering the event.

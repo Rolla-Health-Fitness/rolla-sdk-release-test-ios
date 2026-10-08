@@ -37,6 +37,47 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     // Cleared on session start / gap reset so a new session can't collide.
     private var lastInputFixIdentity: (ts: Double, lat: Double, lon: Double)?
 
+    // Sustained over-speed lockout. `maxConsecutiveRejections` implausible
+    // fixes in a row mean the anchor — not the fixes — is stale (the user is
+    // in a vehicle, or GPS came back somewhere else). The anchor is kept but
+    // no longer trusted, and nothing emits until `lockoutExitRequiredFixes`
+    // consecutive fixes describe plausible, moving travel relative to the
+    // first fix of their run; the last of them becomes the new anchor. The
+    // anchor must not be re-seeded from a single fix: the next vehicle fix
+    // would teleport relative to the fresh seed and re-arm warm-up, whose
+    // teleport guard would then hold the pipeline for the whole drive — which
+    // is also why warm-up teleports count towards the lockout.
+    private var isOverSpeedLockout: Bool = false
+    private var lockoutRunStartFix: LocationData?
+    private var lockoutPlausibleMovingFixes: Int = 0
+    private var lockoutExitRequiredFixes: Int = lockoutExitConsecutiveFixes
+    private var lastLockoutExitTimestamp: TimeInterval?
+    private var vehicleDopplerSinceLockoutExit: Bool = false
+    private static let lockoutExitConsecutiveFixes: Int = 4
+    // Relapse hysteresis: a lockout re-entered shortly after an exit, with
+    // vehicle-speed Doppler seen in between, is stop-and-go traffic that crept
+    // at walking pace — not a walk. A car rarely holds ≤ maxSpeedMps for 12 s
+    // straight; a walker does it trivially. The Doppler condition spares a
+    // walker whose exit landed on a GPS shadow and snapped back: that
+    // re-lockout shows no vehicle Doppler and keeps the short exit.
+    private static let lockoutExitConsecutiveFixesAfterRelapse: Int = 12
+    private static let lockoutRelapseWindowSec: TimeInterval = 60.0
+
+    // Where the user plausibly was before continuity was lost (lockout or gap
+    // reset), dated by when they were LAST seen there — not by the anchor's own
+    // timestamp, which for a stop is the arrival time and would dilute the
+    // bridge speed by the stop's duration. The first emit afterwards is checked
+    // against it: if covering the distance would have needed more than
+    // maxSpeedMps, that emit is flagged as the start of a new track segment so
+    // consumers do not join it to the previous point (or count the gap as
+    // distance). Kept across nested losses so the check always spans the whole
+    // discontinuity.
+    private struct ContinuityReference {
+        let coordinate: Coordinate
+        let lastSeenTimestamp: TimeInterval
+    }
+    private var continuityReference: ContinuityReference?
+
     // Remembered so the config snapshot can be re-emitted at session start,
     // after the debug capture file has been opened by the use case.
     private var activityType: LocationActivityType = .walk
@@ -68,8 +109,9 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     private var sessionGateRejections: [String: Int] = ["A": 0, "B": 0, "C": 0]
     private var sessionPendingArms: Int = 0
     private var sessionPendingConfirms: [String: Int] = ["distance": 0, "speed": 0, "timeout": 0]
-    private var sessionRebootstraps: Int = 0
-    private var sessionRebootstrapSuppressed: Int = 0
+    private var sessionOverSpeedLockouts: Int = 0
+    private var sessionOverSpeedLockoutExits: Int = 0
+    private var sessionSegmentStarts: Int = 0
     private var sessionWarmupReanchors: Int = 0
     private var sessionWarmupTimeoutEmits: Int = 0
     private var sessionWarmupTeleportRejections: Int = 0
@@ -221,15 +263,21 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         await calibrationManager.reset()
         await courseValidator.reset()
         resetPipelineAnchors(reason: "reset")
+        // A new session has no previous segment to be continuous with.
+        continuityReference = nil
         resetSessionCounters()
         logger.info("Calibration and pipeline state reset", category: .location)
     }
 
     func getLastValidLocation() async -> LocationData? {
-        lastAcceptedLocation
+        // The lockout exists because this anchor is no longer trusted.
+        isOverSpeedLockout ? nil : lastAcceptedLocation
     }
 
     private func triggerGapReset() async {
+        // The outage itself may hide a vehicle ride: remember where the user
+        // last plausibly was so the first emit afterwards can be judged.
+        rememberContinuityReference()
         resetPipelineAnchors(reason: "gap-reset")
         await courseValidator.reset()
         if config.resetCalibrationOnGap {
@@ -255,32 +303,167 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         consecutiveWalkingFixes = 0
         lastPendingFix = nil
         lastInputFixIdentity = nil
+        isOverSpeedLockout = false
+        lockoutRunStartFix = nil
+        lockoutPlausibleMovingFixes = 0
+        lockoutExitRequiredFixes = Self.lockoutExitConsecutiveFixes
+        lastLockoutExitTimestamp = nil
+        vehicleDopplerSinceLockoutExit = false
     }
 
-    /// Mid-stop/mid-exit we cap the counter instead of nuking — a full reset
-    /// would let the next scatter fix emit raw as the new anchor.
-    private func checkRebootstrap() async {
-        guard consecutiveGateRejections >= config.maxConsecutiveRejections else { return }
-        let rejections = consecutiveGateRejections
+    /// Only the FIRST loss of continuity sets the reference: a later loss
+    /// before any emit must not move it forward, or the check would judge
+    /// only the tail of the discontinuity. `lastAcceptedTimestamp` is bumped
+    /// by every fix that was consistent with the anchor (accepted, stationary-
+    /// or pending-suppressed) and never by a gate rejection, so it is exactly
+    /// "last seen near the anchor" — the stop-entry anchor itself only knows
+    /// when the user arrived.
+    private func rememberContinuityReference() {
+        guard continuityReference == nil, let anchor = stationaryEntryLocation ?? lastAcceptedLocation else { return }
+        continuityReference = ContinuityReference(
+            coordinate: anchor.coordinate,
+            lastSeenTimestamp: max(anchor.timestamp.timeIntervalSince1970, lastAcceptedTimestamp)
+        )
+    }
 
-        if pendingExitAt != nil || stationaryEntryLocation != nil {
-            sessionRebootstrapSuppressed += 1
-            logger.info("\(rejections) rejections during stationary/post-exit — suppressing rebootstrap", category: .location)
-            LocationDebugCapture.shared.logState(transition: "rebootstrap-suppressed", details: ["rejections": rejections])
-            setConsecutiveRejections(0, gate: "rebootstrap-suppressed")
-            return
-        }
+    /// Returns whether the lockout was entered by this call, so callers branch
+    /// on the result instead of re-reading actor state after the suspension.
+    private func checkOverSpeedLockout(triggeredBy locationData: LocationData) async -> Bool {
+        guard consecutiveGateRejections >= config.maxConsecutiveRejections else { return false }
+        await enterOverSpeedLockout(rejections: consecutiveGateRejections, triggeredBy: locationData)
+        return true
+    }
 
-        sessionRebootstraps += 1
-        logger.warning("\(rejections) rejections — force-clearing prior for re-bootstrap", category: .location)
-        LocationDebugCapture.shared.logState(transition: "rebootstrap", details: ["rejections": rejections])
-        setLastAccepted(nil, reason: "rebootstrap-clear")
-        setLastEmitted(nil, reason: "rebootstrap-clear")
-        setSecondLastEmitted(nil, reason: "rebootstrap-clear")
-        setSmoothed(nil, nil, reason: "rebootstrap-clear")
-        setConsecutiveRejections(0, gate: "rebootstrap")
+    /// Abandons the stale anchor after a run of implausible fixes. There is no
+    /// stationary/pending exemption any more: those anchors are just as stale,
+    /// and exempting them is exactly what pinned the pipeline forever when a
+    /// stop preceded the vehicle ride. `lastAcceptedLocation` is deliberately
+    /// kept non-nil — processLocation's calibrated branch re-seeds (and re-arms
+    /// warm-up) whenever it is nil, which would bypass the lockout. Scatter
+    /// cannot emit raw as a new anchor either: exiting needs a consistent run
+    /// of moving fixes, not a single one.
+    private func enterOverSpeedLockout(rejections: Int, triggeredBy locationData: LocationData) async {
+        sessionOverSpeedLockouts += 1
+        rememberContinuityReference()
+        isOverSpeedLockout = true
+        // The triggering fix does not open the first run: it is the tail of the
+        // rejected burst, and seeding with it only moves the point at which a
+        // long GPS-shadow burst exits onto the shadow by one fix.
+        lockoutRunStartFix = nil
+        lockoutPlausibleMovingFixes = 0
+        let sinceExit = lastLockoutExitTimestamp.map { locationData.timestamp.timeIntervalSince1970 - $0 }
+        let relapse = vehicleDopplerSinceLockoutExit && (sinceExit.map { $0 <= Self.lockoutRelapseWindowSec } ?? false)
+        lockoutExitRequiredFixes = relapse ? Self.lockoutExitConsecutiveFixesAfterRelapse : Self.lockoutExitConsecutiveFixes
+        setLastEmitted(nil, reason: "lockout")
+        setSecondLastEmitted(nil, reason: "lockout")
+        setSmoothed(nil, nil, reason: "lockout")
+        setStationaryEntry(nil, reason: "lockout")
+        pendingExitAt = nil
+        pendingExitFromLocation = nil
+        lastPendingFix = nil
+        consecutiveWalkingFixes = 0
+        isPostCalibrationWarmUp = false
+        warmUpStartTime = nil
+        setConsecutiveRejections(0, gate: "lockout")
         stationaryDetector.reset()
         await courseValidator.reset()
+        logger.warning("\(rejections) consecutive rejections — anchor is stale, entering over-speed lockout (exit needs \(lockoutExitRequiredFixes) fixes)", category: .location)
+        var details: [String: Any] = ["rejections": rejections, "exitRequiredFixes": lockoutExitRequiredFixes, "relapse": relapse]
+        if let sinceExit = sinceExit { details["sinceLastExitSec"] = sinceExit }
+        LocationDebugCapture.shared.logState(transition: "over-speed-lockout", details: details)
+    }
+
+    /// Lockout fixes are judged against the FIRST fix of the current run, not
+    /// the anchor — the anchor is what we no longer trust — and not the
+    /// previous fix either: 1 Hz position jitter makes consecutive-fix implied
+    /// speed swing between 0 and 5 m/s during a steady walk, which would keep
+    /// resetting the run, whereas over the run's whole span the jitter averages
+    /// out while a vehicle still reads as tens of m/s. A fix that fails
+    /// restarts the run at itself. "Moving" is decided by Doppler alone:
+    /// position-implied speed between indoor scatter fixes is routinely
+    /// 1–3 m/s, which would read as a plausible walk and re-anchor the pipeline
+    /// onto scatter, while outdoor GPS fixes — the only ones worth recording —
+    /// carry Doppler. Requiring motion also keeps a vehicle waiting at a light
+    /// from re-acquiring the anchor; a genuinely stationary user has nothing to
+    /// record until they walk anyway. A plausible fix WITHOUT Doppler is
+    /// neutral — it neither extends nor restarts the run: it says nothing about
+    /// motion, and restarting on every speed-less fix would only delay a
+    /// legitimate exit. The fix that ends the run must also be precise enough
+    /// to anchor on (same floor as a pending-exit confirm); a coarse one keeps
+    /// the run alive and waits for a better fix.
+    private func handleOverSpeedLockout(_ locationData: LocationData) async {
+        guard let runStart = lockoutRunStartFix else {
+            lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+            lockoutRunStartFix = locationData
+            suppress(locationData, reason: "lockout_await", level: .info, msg: "Over-speed lockout — awaiting plausible motion")
+            return
+        }
+        let dt = locationData.timestamp.timeIntervalSince(runStart.timestamp)
+        guard dt > 0 else {
+            // Unreachable for raw fixes (the regression guard rejects them first);
+            // a centroid with an older timestamp must neither extend the run
+            // nor wind `lastAcceptedTimestamp` back.
+            lockoutPlausibleMovingFixes = 0
+            suppress(locationData, reason: "lockout_dt_non_positive", level: .warning, msg: "Rejected: non-positive dt in lockout")
+            return
+        }
+        lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+        let impliedSpeed = runStart.coordinate.distance(to: locationData.coordinate) / dt
+        let hasDoppler = locationData.speed >= 0
+        let plausible = impliedSpeed <= config.maxSpeedMps && (!hasDoppler || locationData.speed <= config.maxSpeedMps)
+        let moving = hasDoppler && locationData.speed >= config.stationarySpeedExit
+        let qualifies = plausible && moving
+        let neutral = plausible && !hasDoppler
+        if qualifies {
+            lockoutPlausibleMovingFixes += 1
+        } else if !neutral {
+            lockoutPlausibleMovingFixes = 0
+            lockoutRunStartFix = locationData
+        }
+        let reason: String
+        if qualifies {
+            reason = "lockout_plausible"
+        } else if !plausible {
+            reason = "lockout_implausible"
+        } else {
+            reason = hasDoppler ? "lockout_not_moving" : "lockout_no_doppler"
+        }
+        LocationDebugCapture.shared.logGate(
+            gate: "lockout", passed: qualifies, reason: reason,
+            inputs: ["impliedSpeedMps": impliedSpeed, "spd": locationData.speed, "limitMps": config.maxSpeedMps,
+                     "minMovingMps": config.stationarySpeedExit, "acc": locationData.horizontalAccuracy,
+                     "consecutive": lockoutPlausibleMovingFixes, "needed": lockoutExitRequiredFixes],
+            fixTs: locationData.timestamp
+        )
+        if lockoutPlausibleMovingFixes >= lockoutExitRequiredFixes
+            && locationData.horizontalAccuracy <= Self.pendingExitConfirmAccuracyM {
+            await exitOverSpeedLockout(at: locationData)
+            return
+        }
+        suppress(locationData, reason: "lockout_suppressed", level: .info,
+                 msg: "Over-speed lockout — implied \(String(format: "%.1f", impliedSpeed))m/s, \(lockoutPlausibleMovingFixes)/\(lockoutExitRequiredFixes) plausible moving fixes")
+    }
+
+    /// The re-anchor fix itself is not emitted: the next fix passes the gates
+    /// against it and is the one that carries the continuity verdict. The
+    /// rejection counter is already 0 (nothing counts during the lockout).
+    private func exitOverSpeedLockout(at locationData: LocationData) async {
+        sessionOverSpeedLockoutExits += 1
+        isOverSpeedLockout = false
+        lockoutRunStartFix = nil
+        lockoutPlausibleMovingFixes = 0
+        lastLockoutExitTimestamp = locationData.timestamp.timeIntervalSince1970
+        vehicleDopplerSinceLockoutExit = false
+        setLastAccepted(locationData, reason: "lockout-exit")
+        lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+        stationaryDetector.reset()
+        await courseValidator.reset()
+        logger.info("Over-speed lockout ended — re-anchored at \(fmtCoord(locationData.coordinate))", category: .location)
+        LocationDebugCapture.shared.logState(transition: "over-speed-lockout-exit", details: [
+            "lat": locationData.coordinate.latitude, "lon": locationData.coordinate.longitude,
+            "acc": locationData.horizontalAccuracy, "spd": locationData.speed
+        ])
+        suppress(locationData, reason: "lockout_exit_reanchor", level: .info, msg: "Lockout exit — re-anchored, suppressed")
     }
 
     // MARK: - Pipeline
@@ -288,20 +471,34 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
     private func applyPipeline(_ locationData: LocationData) async -> LocationData? {
         guard let last = lastAcceptedLocation else { return nil }
 
+        // Vehicle evidence for the relapse hysteresis; cleared at lockout exit.
+        if locationData.speed > config.maxSpeedMps {
+            vehicleDopplerSinceLockoutExit = true
+        }
+
+        // Anchor abandoned: nothing below is meaningful until a consistent
+        // run of moving fixes re-acquires one.
+        if isOverSpeedLockout {
+            await handleOverSpeedLockout(locationData)
+            return nil
+        }
+
         // Warm-up: replace centroid with first decent-accuracy fix, gated by
         // implied speed so a CL position-solution switch can't look like re-anchor.
         // warmUpMaxAccuracy is config.maxAccuracy (set per-activity).
         if isPostCalibrationWarmUp {
             if locationData.horizontalAccuracy <= warmUpMaxAccuracy {
-                handleWarmupReanchor(locationData, last: last)
+                await handleWarmupReanchor(locationData, last: last)
                 return nil
             }
-            // Cap the unbounded warm-up wait. Once we've been warming up
+            // Cap the warm-up wait for accuracy. Once we've been warming up
             // longer than the timeout, accept the best-so-far fix as the new
             // anchor and fall through to the normal pipeline so the recorded
-            // first point can't hang indoors. The fix already passed
-            // isValidLocation (≤ maxAccuracy), and re-anchoring lastAccepted to
-            // it keeps Gate A's implied-speed baseline honest.
+            // first point can't hang indoors. Safety net only while
+            // warmUpMaxAccuracy == config.maxAccuracy: isValidLocation already
+            // enforces that floor, so the branch above always takes the fix;
+            // this stays for the day the two floors diverge. Re-anchoring
+            // lastAccepted here keeps Gate A's implied-speed baseline honest.
             let start = warmUpStartTime ?? locationData.timestamp.timeIntervalSince1970
             if locationData.timestamp.timeIntervalSince1970 - start > Self.warmUpTimeoutSec {
                 isPostCalibrationWarmUp = false
@@ -387,7 +584,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         return emitIfAboveThreshold(locationData)
     }
 
-    private func handleWarmupReanchor(_ locationData: LocationData, last: LocationData) {
+    private func handleWarmupReanchor(_ locationData: LocationData, last: LocationData) async {
         let warmUpDt = locationData.timestamp.timeIntervalSince(last.timestamp)
         let warmUpDist = last.coordinate.distance(to: locationData.coordinate)
         let warmUpSpeed = warmUpDt > 0 ? warmUpDist / warmUpDt : 0
@@ -401,13 +598,20 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         )
         if teleport {
             sessionWarmupTeleportRejections += 1
+            // A teleport relative to a fresh seed is the same evidence as a
+            // Gate A rejection: sustained, it means the SEED is the stale
+            // point (a re-seed taken mid-ride), so it must count towards the
+            // lockout instead of holding the warm-up open indefinitely.
+            setConsecutiveRejections(consecutiveGateRejections + 1, gate: "warmup")
             suppress(locationData, reason: "warm_up_teleport", level: .warning,
-                     msg: "Warm-up rejected: teleport \(String(format: "%.1f", warmUpDist))m in \(String(format: "%.1f", warmUpDt))s = \(String(format: "%.1f", warmUpSpeed))m/s")
+                     msg: "Warm-up rejected: teleport \(String(format: "%.1f", warmUpDist))m in \(String(format: "%.1f", warmUpDt))s = \(String(format: "%.1f", warmUpSpeed))m/s [#\(consecutiveGateRejections)]")
+            _ = await checkOverSpeedLockout(triggeredBy: locationData)
             return
         }
         sessionWarmupReanchors += 1
         setLastAccepted(locationData, reason: "warmup-reanchor")
         lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+        setConsecutiveRejections(0, gate: "reset")
         isPostCalibrationWarmUp = false
         warmUpStartTime = nil
         logger.info(
@@ -460,9 +664,37 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             return nil
         }
 
+        // Vehicle-speed Doppler while pending is the same evidence as a Gate A
+        // rejection: a car pulling away from the stop must converge on the
+        // lockout, never confirm the exit — so such a fix never reaches the
+        // tiers below (Doppler leads position, and the distance tier's
+        // implied-speed guard alone would pass a 3 m step at 6 m/s Doppler).
+        // Position-implied speed is left out here on purpose — indoor scatter
+        // between consecutive pending fixes is routinely implausible and must
+        // not count. Walking-pace Doppler is consistent with the anchor and
+        // resets the run, keeping the counter's "consecutive" meaning.
+        if locationData.speed > config.maxSpeedMps {
+            setConsecutiveRejections(consecutiveGateRejections + 1, gate: "pending")
+            let lockedOut = await checkOverSpeedLockout(triggeredBy: locationData)
+            if !lockedOut {
+                lastAcceptedTimestamp = locationData.timestamp.timeIntervalSince1970
+                lastPendingFix = locationData
+                consecutiveWalkingFixes = 0
+            }
+            suppress(locationData, reason: "pending_exit_overspeed", level: .warning,
+                     msg: "Pending exit — doppler \(String(format: "%.1f", locationData.speed))m/s > max\(lockedOut ? ", lockout entered" : "")")
+            return nil
+        }
+        if locationData.speed >= 0 {
+            setConsecutiveRejections(0, gate: "reset")
+        }
+
         // Two tiers: speed is outdoor fast-path; distance is the indoor fallback.
+        // The speed tier is bounded above as well: only walking-pace Doppler may
+        // confirm, otherwise a vehicle leaving the stop re-anchors onto itself.
         let movedMeters = exitFrom.coordinate.distance(to: locationData.coordinate)
         let walkingFix = locationData.speed >= Self.pendingExitSpeedMps
+            && locationData.speed <= config.maxSpeedMps
             && locationData.horizontalAccuracy <= Self.pendingExitSpeedAccuracyM
         if walkingFix {
             consecutiveWalkingFixes += 1
@@ -568,7 +800,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             setConsecutiveRejections(consecutiveGateRejections + 1, gate: "A")
             suppress(locationData, reason: "gate_a_speed", level: .warning,
                      msg: "Gate A REJECTED: implied \(String(format: "%.1f", impliedSpeed))m/s > max \(String(format: "%.1f", config.maxSpeedMps))m/s [#\(consecutiveGateRejections)]")
-            await checkRebootstrap()
+            _ = await checkOverSpeedLockout(triggeredBy: locationData)
             return .reject
         }
 
@@ -591,7 +823,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
                     setConsecutiveRejections(consecutiveGateRejections + 1, gate: "B")
                     suppress(locationData, reason: "gate_b_lateral", level: .warning,
                              msg: "Gate B REJECTED: lateral \(String(format: "%.1f", lateralDev))m > \(String(format: "%.1f", lateralThreshold))m [#\(consecutiveGateRejections)]")
-                    await checkRebootstrap()
+                    _ = await checkOverSpeedLockout(triggeredBy: locationData)
                     return .reject
                 }
             }
@@ -608,7 +840,7 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             setConsecutiveRejections(consecutiveGateRejections + 1, gate: "C")
             suppress(locationData, reason: "gate_c_course", level: .warning,
                      msg: "Gate C REJECTED: course spike [#\(consecutiveGateRejections)]")
-            await checkRebootstrap()
+            _ = await checkOverSpeedLockout(triggeredBy: locationData)
             return .reject
         }
 
@@ -672,6 +904,8 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             return nil
         }
 
+        let startsSegment = resolveSegmentContinuity(for: locationData)
+
         let alpha = min(config.emaAlphaCap, max(0.2, 5.0 / max(locationData.horizontalAccuracy, 1.0)))
         let emitLat: Double
         let emitLon: Double
@@ -688,15 +922,41 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             coordinate: Coordinate(latitude: emitLat, longitude: emitLon),
             altitude: locationData.altitude, horizontalAccuracy: locationData.horizontalAccuracy,
             verticalAccuracy: locationData.verticalAccuracy, speed: locationData.speed,
-            course: locationData.course, timestamp: locationData.timestamp
+            course: locationData.course, timestamp: locationData.timestamp,
+            isSegmentStart: startsSegment
         )
         setSecondLastEmitted(lastEmittedLocation, reason: "gate-pass")
         setLastEmitted(emittedData, reason: "gate-pass")
         lastEmitAt = emittedData.timestamp
         sessionEmitCount += 1
-        logger.info("Emitted | \(String(format: "%.1f", distanceFromLastEmit))m, α=\(String(format: "%.2f", alpha)), acc=\(String(format: "%.1f", locationData.horizontalAccuracy))m", category: .location)
+        logger.info("Emitted | \(String(format: "%.1f", distanceFromLastEmit))m, α=\(String(format: "%.2f", alpha)), acc=\(String(format: "%.1f", locationData.horizontalAccuracy))m\(startsSegment ? " [new segment]" : "")", category: .location)
         LocationDebugCapture.shared.logEmit(emittedData)
         return emittedData
+    }
+
+    /// First emit after continuity was lost: does this point join the previous
+    /// segment or start a new one? A GPS-shadow burst or a tunnel leaves the
+    /// user where a walker could have got to, so the gap is bridged as before;
+    /// a vehicle ride does not, so the gap stays open. Consumes the reference.
+    /// A gap that cannot be timed (dt ≤ 0) cannot be vouched for either and
+    /// stays open.
+    private func resolveSegmentContinuity(for locationData: LocationData) -> Bool {
+        guard let reference = continuityReference else { return false }
+        continuityReference = nil
+        let dt = locationData.timestamp.timeIntervalSince1970 - reference.lastSeenTimestamp
+        let distance = reference.coordinate.distance(to: locationData.coordinate)
+        let bridgeSpeed: Double? = dt > 0 ? distance / dt : nil
+        let startsSegment = bridgeSpeed.map { $0 > config.maxSpeedMps } ?? true
+        if startsSegment { sessionSegmentStarts += 1 }
+        let speedText = bridgeSpeed.map { String(format: "%.1f", $0) + "m/s" } ?? "untimed"
+        logger.info(
+            "Continuity: \(String(format: "%.0f", distance))m in \(String(format: "%.0f", dt))s = \(speedText) → \(startsSegment ? "new segment" : "continued")",
+            category: .location
+        )
+        var details: [String: Any] = ["bridgeDistM": distance, "bridgeDtSec": dt, "limitMps": config.maxSpeedMps]
+        if let bridgeSpeed = bridgeSpeed { details["bridgeSpeedMps"] = bridgeSpeed }
+        LocationDebugCapture.shared.logState(transition: startsSegment ? "segment-start" : "segment-continued", details: details)
+        return startsSegment
     }
 
     private func seedInitialAnchor(_ locationData: LocationData) {
@@ -838,8 +1098,9 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
         sessionGateRejections = ["A": 0, "B": 0, "C": 0]
         sessionPendingArms = 0
         sessionPendingConfirms = ["distance": 0, "speed": 0, "timeout": 0]
-        sessionRebootstraps = 0
-        sessionRebootstrapSuppressed = 0
+        sessionOverSpeedLockouts = 0
+        sessionOverSpeedLockoutExits = 0
+        sessionSegmentStarts = 0
         sessionWarmupReanchors = 0
         sessionWarmupTimeoutEmits = 0
         sessionWarmupTeleportRejections = 0
@@ -865,7 +1126,10 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             "pendingExitSpeedMps": Self.pendingExitSpeedMps,
             "pendingExitSpeedAccuracyM": Self.pendingExitSpeedAccuracyM,
             "pendingExitSpeedConsecutive": Self.pendingExitSpeedConsecutive,
-            "warmupMaxAccuracy": warmUpMaxAccuracy
+            "warmupMaxAccuracy": warmUpMaxAccuracy,
+            "lockoutExitConsecutiveFixes": Self.lockoutExitConsecutiveFixes,
+            "lockoutExitConsecutiveFixesAfterRelapse": Self.lockoutExitConsecutiveFixesAfterRelapse,
+            "lockoutRelapseWindowSec": Self.lockoutRelapseWindowSec
         ]
     }
 
@@ -876,8 +1140,9 @@ actor DefaultLocationDataProcessor: LocationDataProcessing {
             "suppressCountByReason": sessionSuppressCounts,
             "gateRejectionCounts": sessionGateRejections,
             "pendingArms": sessionPendingArms, "pendingConfirms": sessionPendingConfirms,
-            "rebootstraps": sessionRebootstraps,
-            "rebootstrapSuppressed": sessionRebootstrapSuppressed,
+            "overSpeedLockouts": sessionOverSpeedLockouts,
+            "overSpeedLockoutExits": sessionOverSpeedLockoutExits,
+            "segmentStarts": sessionSegmentStarts,
             "warmupReanchors": sessionWarmupReanchors,
             "warmupTimeoutEmits": sessionWarmupTimeoutEmits,
             "warmupTeleportRejections": sessionWarmupTeleportRejections

@@ -341,6 +341,10 @@ struct GpsData: Hashable {
   var longitude: Double
   var altitude: Double
   var timestamp: Int64
+  /// True when the native pipeline lost track continuity before this point
+  /// (e.g. a dropped vehicle segment) — the route must start a new segment
+  /// here instead of joining it to the previous point.
+  var isSegmentStart: Bool
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -349,12 +353,14 @@ struct GpsData: Hashable {
     let longitude = pigeonVar_list[1] as! Double
     let altitude = pigeonVar_list[2] as! Double
     let timestamp = pigeonVar_list[3] as! Int64
+    let isSegmentStart = pigeonVar_list[4] as! Bool
 
     return GpsData(
       latitude: latitude,
       longitude: longitude,
       altitude: altitude,
-      timestamp: timestamp
+      timestamp: timestamp,
+      isSegmentStart: isSegmentStart
     )
   }
   func toList() -> [Any?] {
@@ -363,6 +369,7 @@ struct GpsData: Hashable {
       longitude,
       altitude,
       timestamp,
+      isSegmentStart,
     ]
   }
   static func == (lhs: GpsData, rhs: GpsData) -> Bool {
@@ -2666,6 +2673,39 @@ class PhonePedometerFlutterApi: PhonePedometerFlutterApiProtocol {
       } else {
         completion(.success(()))
       }
+    }
+  }
+}
+/// API for Flutter to read the per-install marker that group sessions combine with the
+/// keychain-backed installation id to tell a reinstall from an app update.
+///
+/// Generated protocol from Pigeon that represents a handler of messages from Flutter.
+protocol GroupInstallationHostApi {
+  /// Returns the marker kept in a per-install, backup-excluded location, creating it on
+  /// first use. Fails with code `STORAGE_UNAVAILABLE` when that location cannot be used.
+  func installationMarker() throws -> String
+}
+
+/// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
+class GroupInstallationHostApiSetup {
+  static var codec: FlutterStandardMessageCodec { MessagesPigeonCodec.shared }
+  /// Sets up an instance of `GroupInstallationHostApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: GroupInstallationHostApi?, messageChannelSuffix: String = "") {
+    let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
+    /// Returns the marker kept in a per-install, backup-excluded location, creating it on
+    /// first use. Fails with code `STORAGE_UNAVAILABLE` when that location cannot be used.
+    let installationMarkerChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rolla_sdk.GroupInstallationHostApi.installationMarker\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      installationMarkerChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.installationMarker()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      installationMarkerChannel.setMessageHandler(nil)
     }
   }
 }
