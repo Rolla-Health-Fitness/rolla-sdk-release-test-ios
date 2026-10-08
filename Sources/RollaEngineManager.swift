@@ -43,7 +43,8 @@ final class RollaEngineManager {
     // While one is running, the Dart side may still be tearing down the
     // previous session, and a late onTokenRefreshed from that session must
     // not seed the register under the new anchor — it would be replayed to
-    // the new user on the next configure. Seeds are discarded while > 0.
+    // the new user on the next configure — nor reach the host callback, which
+    // already belongs to the new user. Both are dropped while > 0.
     private var anchorChangingConfigures = 0
 
     var onClose: ((String?) -> Void)?
@@ -53,8 +54,11 @@ final class RollaEngineManager {
     // show, cleared on dismiss), these are wired for the engine's lifetime by
     // Rolla.wireHostEventCallbacks() and cleared only in destroy(). The token
     // pair belongs here: a headless call can rotate or lose the session, so
-    // delivery must not depend on the SDK UI being presented. `onTokenExpired`
-    // returns whether a host delegate received the request.
+    // delivery must not depend on the SDK UI being presented. While the UI is
+    // presented the pair belongs to the presenting Rolla instance, otherwise
+    // to the instance that most recently called the SDK — a headless call
+    // never takes it from a presenter. `onTokenExpired` returns whether a host
+    // delegate received the request.
     var onTokenRefreshed: ((String, String?, TimeInterval?) -> Void)?
     var onTokenExpired: (() -> Bool)?
     var onActivityCompleted: ((RollaCompletedActivity) -> Void)?
@@ -129,19 +133,22 @@ final class RollaEngineManager {
             let refreshToken = args?["refreshToken"] as? String
             let expiresIn = args?["expiresIn"] as? Int
             let expiresInInterval: TimeInterval? = expiresIn.map { TimeInterval($0) }
-            // Never seed while an anchor-changing configure is in flight:
-            // this event may belong to the session being replaced (its
-            // refresh raced the switch) and must not be replayed to the new
-            // user.
-            if !token.isEmpty && anchorChangingConfigures == 0 {
-                latestKnownTokens = LatestKnownTokens(
-                    token: token,
-                    refreshToken: refreshToken,
-                    expiresIn: expiresInInterval,
-                    seededAt: Date()
-                )
+            // Never seed or forward while an anchor-changing configure is in
+            // flight: this event may belong to the session being replaced
+            // (its refresh raced the switch). Seeding would replay it to the
+            // new user on the next configure, and forwarding would hand the
+            // old user's pair to the new user's delegate.
+            if anchorChangingConfigures == 0 {
+                if !token.isEmpty {
+                    latestKnownTokens = LatestKnownTokens(
+                        token: token,
+                        refreshToken: refreshToken,
+                        expiresIn: expiresInInterval,
+                        seededAt: Date()
+                    )
+                }
+                onTokenRefreshed?(token, refreshToken, expiresInInterval)
             }
-            onTokenRefreshed?(token, refreshToken, expiresInInterval)
             result(nil)
 
         case "onTokenExpired":

@@ -9,8 +9,9 @@ public enum RollaSyncOutcome: String {
     /// The sync ran to completion. ``RollaSyncResult/hasNewData`` says whether
     /// anything new was uploaded.
     case success
-    /// The sync ran, at least one stream uploaded new data and at least one
-    /// stream failed — see ``RollaSyncResult/streamResults``;
+    /// The sync ran, at least one stream failed, and new data still reached
+    /// the server — a stream uploaded, or a failed stream's accepted part is
+    /// in ``RollaSyncResult/syncedData``. See ``RollaSyncResult/streamResults``;
     /// ``RollaSyncResult/error`` is the first failure.
     /// ``RollaSyncResult/hasNewData`` is always `true`.
     case partial
@@ -18,7 +19,7 @@ public enum RollaSyncOutcome: String {
     /// ``RollaSyncResult/skipReason``. Not an error.
     case skipped
     /// The sync started but failed — see ``RollaSyncResult/error``. Also the
-    /// outcome when streams failed and none uploaded new data;
+    /// outcome when streams failed and no new data reached the server;
     /// ``RollaSyncResult/streamResults`` then lists every stream the sync attempted.
     case failure
     /// The SDK returned an outcome this version does not recognize (forward-compat).
@@ -93,8 +94,9 @@ public enum RollaSyncSkipReason: String {
 /// A health-data stream a sync uploads. Raw values match the
 /// ``RollaSyncedHealthData`` property names, so a stream's summary is
 /// `syncedData.<name>`. A band sync attempts heart rate, HRV, steps and sleep;
-/// Apple Health attempts all seven. Later versions may add cases, so keep a
-/// `default` branch when switching over it.
+/// Apple Health attempts all seven. Later versions may add cases, so keep an
+/// `@unknown default` branch when switching over it (the SDK is built for
+/// library evolution).
 public enum RollaSyncStream: String {
     /// Heart rate (``RollaSyncedHealthData/heartRate``).
     case heartRate
@@ -115,7 +117,8 @@ public enum RollaSyncStream: String {
 }
 
 /// What happened to one stream during a sync. Later versions may add cases,
-/// so keep a `default` branch when switching over it.
+/// so keep an `@unknown default` branch when switching over it (the SDK is
+/// built for library evolution).
 public enum RollaSyncStreamStatus: String {
     /// New data for this stream reached the server; its summary is in
     /// ``RollaSyncResult/syncedData``.
@@ -125,8 +128,14 @@ public enum RollaSyncStreamStatus: String {
     case noNewData
     /// Reading the stream from its source, or uploading it, failed — see
     /// ``RollaSyncStreamResult/error``. What did not upload is retried on the
-    /// next sync.
+    /// next sync; a stream that fails for the same reason every time stays
+    /// failed until the cause is fixed.
     case failed
+    /// The stream needs a permission the app has not granted. The SDK cannot
+    /// prompt during a sync, so the host requests it and the stream syncs
+    /// from then on; ``RollaSyncStreamResult/error`` says which permission.
+    /// Does not change the sync's outcome on its own.
+    case permissionRequired
     /// The SDK returned a status this version does not recognize (forward-compat).
     case unknown
 }
@@ -137,8 +146,10 @@ public struct RollaSyncStreamResult {
     public let stream: RollaSyncStream
     /// What happened to ``stream``.
     public let status: RollaSyncStreamStatus
-    /// Why the stream failed (``RollaSyncStreamStatus/failed`` only). Diagnostic
-    /// text — not user-facing, not stable, do not parse.
+    /// Why the stream failed, or which permission it needs
+    /// (``RollaSyncStreamStatus/failed`` and
+    /// ``RollaSyncStreamStatus/permissionRequired`` only). Diagnostic text —
+    /// not user-facing, not stable, do not parse.
     public let error: String?
 
     static func from(_ map: [String: Any]?) -> RollaSyncStreamResult? {
@@ -369,7 +380,10 @@ public struct RollaSyncResult {
     /// `.failure`. A success that uploaded nothing (`hasNewData == false`) can
     /// still carry non-nil data: a band sync that connected and read the
     /// battery returns ``RollaSyncedHealthData`` with only ``batteryLevel`` set.
-    /// So `hasNewData == false` does not imply `syncedData == nil`.
+    /// So `hasNewData == false` does not imply `syncedData == nil`. A band sync
+    /// where every stream failed is a `.failure` and carries no data, so a
+    /// battery level read during it is not reported — use
+    /// ``Rolla/getBandBatteryLevel(completion:)`` for that.
     public let syncedData: RollaSyncedHealthData?
 
     /// One entry per stream this sync attempted, in upload order: heart rate,

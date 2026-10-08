@@ -234,11 +234,11 @@ public final class Rolla {
     /// ``RollaDelegate/rollaDidCompleteHealthDataSync(_:result:)`` once a sync
     /// reaches a terminal outcome.
     ///
-    /// On success, ``RollaSyncResult/syncedData`` describes what was uploaded. A
-    /// per-stream summary is always included; pass `includeSamples` `true` to
-    /// also receive the raw sample arrays (``RollaSyncedHealthData/samples``).
-    /// Samples are heavier — a band sync can be thousands of points — so they
-    /// default to off.
+    /// On a successful or partial sync, ``RollaSyncResult/syncedData``
+    /// describes what was uploaded. A per-stream summary is always included;
+    /// pass `includeSamples` `true` to also receive the raw sample arrays
+    /// (``RollaSyncedHealthData/samples``). Samples are heavier — a band sync
+    /// can be thousands of points — so they default to off.
     ///
     /// - Parameters:
     ///   - includeSamples: When `true`, also return the raw per-stream samples.
@@ -380,7 +380,9 @@ public final class Rolla {
         engineManager.setPresenting(true)
 
         // Engine-scoped host events must flow regardless of presentation —
-        // same discipline as the headless APIs (see warmUpEngine).
+        // same discipline as the headless APIs (see warmUpEngine). The slot is
+        // already reserved, so this leaves the token callbacks alone; they move
+        // to this instance in setupCallbacks() once the open succeeds.
         wireHostEventCallbacks()
 
         // `self` is captured strongly through the round-trips — same
@@ -503,11 +505,22 @@ public final class Rolla {
     /// ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss), events keep
     /// flowing after the SDK UI closes — a late `uploaded` activity phase must
     /// still reach the host, and a host that only ever runs headless calls
-    /// still gets events. The token callbacks live here for the same reason:
-    /// a headless call can rotate or lose the session, and the host must hear
-    /// about it with no UI shown. Cleared only by ``destroyEngine()`` or when
-    /// another Rolla instance wires itself (last writer wins, matching the
-    /// presentation-callback semantics).
+    /// still gets events. The eleven host events are cleared only by
+    /// ``destroyEngine()`` or when another Rolla instance wires itself (last
+    /// writer wins, matching the presentation-callback semantics).
+    ///
+    /// The token callbacks live here for the same reason — a headless call can
+    /// rotate or lose the session, and the host must hear about it with no UI
+    /// shown — but they follow a stricter rule: while the SDK UI is presented
+    /// they belong to the presenting instance, otherwise to the instance that
+    /// most recently called the SDK. A refresh token is single-use, so a
+    /// headless call from a throwaway instance with no delegate must not take
+    /// them over while another instance presents the UI. ``setupCallbacks()``
+    /// passes `presenting: true`; every headless entry point keeps the default.
+    ///
+    /// - Parameter presenting: `true` when this instance is presenting (or
+    ///   about to present) the SDK UI and so takes the token callbacks even
+    ///   though ``RollaEngineManager/isPresenting`` is already set.
     ///
     /// `self` is captured strongly on purpose: hosts often create a Rolla
     /// instance per call and drop it; a weak capture would silently end event
@@ -515,7 +528,7 @@ public final class Rolla {
     /// singleton and `Rolla` holds no strong reference back to it, so this is
     /// a cycle-free lifetime extension until destroy/rewire. The delegate
     /// property itself stays weak — the host controls its listener's lifetime.
-    private func wireHostEventCallbacks() {
+    private func wireHostEventCallbacks(presenting: Bool = false) {
         engineManager.onActivityCompleted = { activity in
             self.delegate?.rollaDidCompleteActivity(self, activity: activity)
         }
@@ -560,24 +573,30 @@ public final class Rolla {
             self.delegate?.rollaDidUpdateProfile(self, update: update)
         }
 
-        // A refresh token is single-use, so a rotation the host never learns
-        // about leaves it holding a dead pair. `onTokenExpired` answers whether
-        // a delegate was there to receive the request; without one the Dart
-        // side fails fast instead of waiting for an `updateToken` push that
-        // can never come.
-        engineManager.onTokenRefreshed = { token, refreshToken, expiresIn in
-            self.delegate?.rollaDidRefreshToken(self, token: token, refreshToken: refreshToken, expiresIn: expiresIn)
-        }
+        // While the SDK UI is presented the token callbacks belong to the
+        // presenting instance; otherwise to the instance that most recently
+        // called the SDK. A refresh token is single-use, so a rotation
+        // delivered to an instance without a delegate leaves the host holding
+        // a dead pair. `onTokenExpired` answers whether a delegate was there
+        // to receive the request; without one the Dart side fails fast
+        // instead of waiting for an `updateToken` push that can never come.
+        if presenting || !engineManager.isPresenting {
+            engineManager.onTokenRefreshed = { token, refreshToken, expiresIn in
+                self.delegate?.rollaDidRefreshToken(
+                    self, token: token, refreshToken: refreshToken, expiresIn: expiresIn
+                )
+            }
 
-        engineManager.onTokenExpired = {
-            guard let delegate = self.delegate else { return false }
-            delegate.rollaDidRequestTokenRefresh(self)
-            return true
+            engineManager.onTokenExpired = {
+                guard let delegate = self.delegate else { return false }
+                delegate.rollaDidRequestTokenRefresh(self)
+                return true
+            }
         }
     }
 
     private func setupCallbacks() {
-        wireHostEventCallbacks()
+        wireHostEventCallbacks(presenting: true)
 
         engineManager.onClose = { [weak self] reason in
             guard let self else { return }
