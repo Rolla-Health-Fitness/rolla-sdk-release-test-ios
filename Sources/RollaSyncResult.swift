@@ -14,6 +14,9 @@ public enum RollaSyncOutcome: String {
     /// in ``RollaSyncResult/syncedData``. See ``RollaSyncResult/streamResults``;
     /// ``RollaSyncResult/error`` is the first failure.
     /// ``RollaSyncResult/hasNewData`` is always `true`.
+    /// ``RollaSyncResult/syncedData`` is present unless this sync overlapped
+    /// another one (see the property), while ``RollaSyncResult/streamResults``
+    /// is always complete.
     case partial
     /// Nothing was synced and that's expected — see
     /// ``RollaSyncResult/skipReason``. Not an error.
@@ -151,6 +154,15 @@ public struct RollaSyncStreamResult {
     /// ``RollaSyncStreamStatus/permissionRequired`` only). Diagnostic text —
     /// not user-facing, not stable, do not parse.
     public let error: String?
+
+    /// Builds an entry by hand — for a host's own tests or previews of a
+    /// ``RollaDelegate`` handler; the SDK fills ``RollaSyncResult/streamResults``
+    /// itself.
+    public init(stream: RollaSyncStream, status: RollaSyncStreamStatus, error: String? = nil) {
+        self.stream = stream
+        self.status = status
+        self.error = error
+    }
 
     static func from(_ map: [String: Any]?) -> RollaSyncStreamResult? {
         guard let map = map else { return nil }
@@ -377,7 +389,11 @@ public struct RollaSyncResult {
 
     /// The health data this sync uploaded — per-stream summaries always, raw
     /// samples when `includeSamples: true` was requested. nil for `.skipped` /
-    /// `.failure`. A success that uploaded nothing (`hasNewData == false`) can
+    /// `.failure`, and — on a `.partial` too — when this sync overlapped
+    /// another one (a UI auto-sync starting during a headless sync, or two UI
+    /// syncs): the shared tally is reset under it, so nothing attributable is
+    /// left to report, while ``streamResults`` still says which streams
+    /// uploaded. A success that uploaded nothing (`hasNewData == false`) can
     /// still carry non-nil data: a band sync that connected and read the
     /// battery returns ``RollaSyncedHealthData`` with only ``batteryLevel`` set.
     /// So `hasNewData == false` does not imply `syncedData == nil`. A band sync

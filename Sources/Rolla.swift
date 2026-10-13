@@ -235,7 +235,9 @@ public final class Rolla {
     /// reaches a terminal outcome.
     ///
     /// On a successful or partial sync, ``RollaSyncResult/syncedData``
-    /// describes what was uploaded. A per-stream summary is always included;
+    /// describes what was uploaded (the property documents the cases where it
+    /// is nil, such as a sync that overlapped another one). A per-stream
+    /// summary is always included in it;
     /// pass `includeSamples` `true` to also receive the raw sample arrays
     /// (``RollaSyncedHealthData/samples``). Samples are heavier — a band sync
     /// can be thousands of points — so they default to off.
@@ -380,10 +382,14 @@ public final class Rolla {
         engineManager.setPresenting(true)
 
         // Engine-scoped host events must flow regardless of presentation —
-        // same discipline as the headless APIs (see warmUpEngine). The slot is
-        // already reserved, so this leaves the token callbacks alone; they move
-        // to this instance in setupCallbacks() once the open succeeds.
-        wireHostEventCallbacks()
+        // same discipline as the headless APIs (see warmUpEngine). The token
+        // callbacks come along now rather than in setupCallbacks() after the
+        // open: this instance holds the presenting slot, so a rotation or a
+        // failed refresh during the configure/navigate round-trip must reach
+        // ITS delegate — not whichever instance last called the SDK, which may
+        // be a throwaway warm-up instance with none (a rotated refresh token is
+        // single-use, so a delivery to nobody loses it for good).
+        wireHostEventCallbacks(presenting: true)
 
         // `self` is captured strongly through the round-trips — same
         // reasoning as getBandBatteryLevel(completion:).
@@ -516,7 +522,8 @@ public final class Rolla {
     /// most recently called the SDK. A refresh token is single-use, so a
     /// headless call from a throwaway instance with no delegate must not take
     /// them over while another instance presents the UI. ``setupCallbacks()``
-    /// passes `presenting: true`; every headless entry point keeps the default.
+    /// and the warm ``openScreen(_:from:transition:completion:)`` path pass
+    /// `presenting: true`; every headless entry point keeps the default.
     ///
     /// - Parameter presenting: `true` when this instance is presenting (or
     ///   about to present) the SDK UI and so takes the token callbacks even

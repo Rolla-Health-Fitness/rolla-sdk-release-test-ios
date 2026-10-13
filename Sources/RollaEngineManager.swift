@@ -42,10 +42,27 @@ final class RollaEngineManager {
     // Count of in-flight configure round-trips that CHANGED the anchor.
     // While one is running, the Dart side may still be tearing down the
     // previous session, and a late onTokenRefreshed from that session must
-    // not seed the register under the new anchor — it would be replayed to
-    // the new user on the next configure — nor reach the host callback, which
-    // already belongs to the new user. Both are dropped while > 0.
+    // not seed the register under the new anchor — it would be replayed on
+    // the next configure. Seeding is dropped while > 0; whether the event
+    // reaches the host is decided by `userChangingConfigures` instead.
     private var anchorChangingConfigures = 0
+
+    // Who the current session belongs to: the host's `userId`, else the
+    // token's JWT `sub` — the key the Dart side uses to tell a same-user
+    // re-initialize (a seamless resume) from a user switch. The anchor above
+    // tracks the token STRING, which also moves on a same-user reconfigure
+    // with a rotated pair; that must reset the register but must not silence
+    // the host forward.
+    private var sessionUserKey: String?
+
+    // Count of in-flight configure round-trips that CHANGED the user. A late
+    // onTokenRefreshed from the session being replaced must not reach the
+    // host callback, which already belongs to the new user. Kept apart from
+    // the anchor count on purpose: a rotation landing during a same-user
+    // reconfigure is one the host must hear about — its stored refresh token
+    // is consumed either way — and the first configure of an engine has no
+    // previous session whose refresh could race it, so neither case gates.
+    private var userChangingConfigures = 0
 
     var onClose: ((String?) -> Void)?
     var onError: ((String, String) -> Void)?
@@ -133,20 +150,24 @@ final class RollaEngineManager {
             let refreshToken = args?["refreshToken"] as? String
             let expiresIn = args?["expiresIn"] as? Int
             let expiresInInterval: TimeInterval? = expiresIn.map { TimeInterval($0) }
-            // Never seed or forward while an anchor-changing configure is in
-            // flight: this event may belong to the session being replaced
-            // (its refresh raced the switch). Seeding would replay it to the
-            // new user on the next configure, and forwarding would hand the
-            // old user's pair to the new user's delegate.
-            if anchorChangingConfigures == 0 {
-                if !token.isEmpty {
-                    latestKnownTokens = LatestKnownTokens(
-                        token: token,
-                        refreshToken: refreshToken,
-                        expiresIn: expiresInInterval,
-                        seededAt: Date()
-                    )
-                }
+            // Never seed while an anchor-changing configure is in flight: the
+            // event may belong to the credential lineage being replaced (its
+            // refresh raced the configure), and seeding would replay it on
+            // the next configure.
+            if anchorChangingConfigures == 0, !token.isEmpty {
+                latestKnownTokens = LatestKnownTokens(
+                    token: token,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresInInterval,
+                    seededAt: Date()
+                )
+            }
+            // Forward unless a user-changing configure is in flight: then the
+            // event may belong to the user being replaced, and the delegate
+            // already belongs to the new one. A same-user reconfigure keeps
+            // forwarding — this rotation consumed the host's stored refresh
+            // token whichever token it just configured with.
+            if userChangingConfigures == 0 {
                 onTokenRefreshed?(token, refreshToken, expiresInInterval)
             }
             result(nil)
@@ -224,6 +245,15 @@ final class RollaEngineManager {
             anchorChangingConfigures += 1
         }
 
+        // A user change needs a previous session to give way: the first
+        // configure of an engine never gates the host forward.
+        let userKey = Self.userKey(for: config)
+        let userChanged = sessionUserKey != nil && sessionUserKey != userKey
+        sessionUserKey = userKey
+        if userChanged {
+            userChangingConfigures += 1
+        }
+
         var args: [String: Any] = [
             "token": latest?.token ?? config.token,
             "partnerId": config.partnerId,
@@ -287,12 +317,17 @@ final class RollaEngineManager {
         }
 
         channel.invokeMethod("initialize", arguments: args) { [weak self] response in
-            // Settle the anchor change synchronously (the result callback
-            // arrives on the platform thread) — floored at zero, since
-            // destroy() resets the counter and a late callback from a
-            // destroyed engine must not push it negative.
-            if anchorChanged, let self = self {
-                self.anchorChangingConfigures = max(self.anchorChangingConfigures - 1, 0)
+            // Settle the anchor and user changes synchronously (the result
+            // callback arrives on the platform thread) — floored at zero,
+            // since destroy() resets the counters and a late callback from a
+            // destroyed engine must not push them negative.
+            if let self = self {
+                if anchorChanged {
+                    self.anchorChangingConfigures = max(self.anchorChangingConfigures - 1, 0)
+                }
+                if userChanged {
+                    self.userChangingConfigures = max(self.userChangingConfigures - 1, 0)
+                }
             }
             DispatchQueue.main.async {
                 if let error = response as? FlutterError {
@@ -481,6 +516,36 @@ final class RollaEngineManager {
         }
     }
 
+    /// The identity the Dart side files a session under: the host-supplied
+    /// `userId`, else the token's JWT `sub` claim. Falls back to the token
+    /// itself when neither is available, which treats every new token as a
+    /// new user — the conservative reading.
+    private static func userKey(for config: RollaConfiguration) -> String {
+        if let userId = config.userId, !userId.isEmpty {
+            return userId
+        }
+        return jwtSubject(config.token) ?? config.token
+    }
+
+    /// The `sub` claim of a JWT's payload; nil when `token` is not a
+    /// decodable JWT or carries no `sub`.
+    private static func jwtSubject(_ token: String) -> String? {
+        let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3 else { return nil }
+        var payload = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while payload.count % 4 != 0 {
+            payload += "="
+        }
+        guard let data = Data(base64Encoded: payload),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sub = claims["sub"] as? String, !sub.isEmpty else {
+            return nil
+        }
+        return sub
+    }
+
     func clearSession(completion: @escaping (Result<Void, RollaError>) -> Void) {
         guard let channel = methodChannel else {
             completion(.failure(.engineFailedToStart))
@@ -494,7 +559,10 @@ final class RollaEngineManager {
                 } else {
                     // The session's credentials are gone — forget the register
                     // so the next configure sends its configuration's own
-                    // tokens.
+                    // tokens. `sessionUserKey` stays: the next configure may
+                    // still race a refresh the old session had in flight, and
+                    // the user comparison is what decides whether that
+                    // rotation may reach the host.
                     self?.latestKnownTokens = nil
                     self?.sessionAnchorToken = nil
                     completion(.success(()))
@@ -510,6 +578,8 @@ final class RollaEngineManager {
         latestKnownTokens = nil
         sessionAnchorToken = nil
         anchorChangingConfigures = 0
+        sessionUserKey = nil
+        userChangingConfigures = 0
         onClose = nil
         onError = nil
         onTokenRefreshed = nil
