@@ -59,7 +59,7 @@ public struct RollaConfiguration {
 /// overrides the SDK's built-in default individually — unset fields keep it.
 public struct RollaBranding {
     /// Display name of the host app, shown wherever SDK copy refers to the app
-    /// (consent and permission texts). nil keeps the generic wording.
+    /// (consent, permission and access-code texts). nil keeps the generic wording.
     public let hostAppName: String?
     /// Seeds the SDK's entire color scheme (buttons, navigation, inputs,
     /// charts, share cards) in both light and dark themes.

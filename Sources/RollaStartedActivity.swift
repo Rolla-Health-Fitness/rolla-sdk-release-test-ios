@@ -28,7 +28,7 @@ public enum RollaActivityStartOrigin: String {
 /// their next activity.
 public struct RollaStartedActivity {
     public let activityId: String
-    /// Base activity type (e.g. `walk`, `run`, `cycling`, `cardio`).
+    /// Base activity type: `walk`, `run`, `cycling`, `cardio` or `other`.
     public let type: String?
     public let startTime: Date?
     public let origin: RollaActivityStartOrigin

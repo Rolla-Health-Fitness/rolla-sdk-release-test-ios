@@ -89,6 +89,7 @@ final class RollaEngineManager {
     var onPrimarySourceChanged: ((RollaPrimarySourceChanged) -> Void)?
     var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
     var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
+    var onAccessChanged: ((RollaAccessStatus) -> Void)?
 
     private init() {}
 
@@ -220,6 +221,10 @@ final class RollaEngineManager {
 
         case "onProfileUpdated":
             onProfileUpdated?(RollaProfileUpdated.from(call.arguments))
+            result(nil)
+
+        case "onAccessChanged":
+            onAccessChanged?(RollaAccessStatus.from(call.arguments))
             result(nil)
 
         default:
@@ -595,6 +600,7 @@ final class RollaEngineManager {
         onPrimarySourceChanged = nil
         onGoalsChanged = nil
         onProfileUpdated = nil
+        onAccessChanged = nil
         engine?.destroyContext()
         engine = nil
         isReady = false

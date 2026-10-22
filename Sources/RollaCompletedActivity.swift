@@ -41,7 +41,7 @@ public struct RollaCompletedActivity {
     public let phase: RollaActivityPhase
     public let source: RollaActivitySource
     public let catalogId: String?
-    /// Base activity type (e.g. `walk`, `run`, `cycling`, `cardio`).
+    /// Base activity type: `walk`, `run`, `cycling`, `cardio` or `other`.
     public let type: String?
     /// `outdoor` or `indoor`.
     public let environment: String?

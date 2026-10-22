@@ -218,7 +218,27 @@ enum WorkoutActivityType: Int {
   case waterPolo = 38
   case stretching = 39
   case waterFitness = 40
-  case other = 41
+  case americanFootball = 41
+  case lacrosse = 42
+  case archery = 43
+  case bowling = 44
+  case fishing = 45
+  case hunting = 46
+  case gymnastics = 47
+  case pickleball = 48
+  case squash = 49
+  case discSports = 50
+  case equestrianSports = 51
+  case wheelchair = 52
+  case underwaterDiving = 53
+  case climbing = 54
+  case wrestling = 55
+  case barre = 56
+  case trackAndField = 57
+  case mixedCardio = 58
+  case fitnessGaming = 59
+  case sailing = 60
+  case other = 61
 }
 
 enum LocationType: Int {

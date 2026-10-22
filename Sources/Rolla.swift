@@ -511,7 +511,7 @@ public final class Rolla {
     /// ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss), events keep
     /// flowing after the SDK UI closes — a late `uploaded` activity phase must
     /// still reach the host, and a host that only ever runs headless calls
-    /// still gets events. The eleven host events are cleared only by
+    /// still gets events. The twelve host events are cleared only by
     /// ``destroyEngine()`` or when another Rolla instance wires itself (last
     /// writer wins, matching the presentation-callback semantics).
     ///
@@ -578,6 +578,10 @@ public final class Rolla {
 
         engineManager.onProfileUpdated = { update in
             self.delegate?.rollaDidUpdateProfile(self, update: update)
+        }
+
+        engineManager.onAccessChanged = { status in
+            self.delegate?.rollaDidChangeAccess(self, status: status)
         }
 
         // While the SDK UI is presented the token callbacks belong to the

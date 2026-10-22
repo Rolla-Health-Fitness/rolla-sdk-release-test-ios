@@ -43,9 +43,35 @@ public enum AHWorkoutActivityType: String, CaseIterable, Sendable {
     case waterPolo
     case stretching
     case waterFitness
+    case americanFootball
+    case lacrosse
+    case archery
+    case bowling
+    case fishing
+    case hunting
+    case gymnastics
+    case pickleball
+    case squash
+    case discSports
+    case equestrianSports
+    case wheelchair
+    case underwaterDiving
+    case climbing
+    case wrestling
+    case barre
+    case trackAndField
+    case mixedCardio
+    case fitnessGaming
+    case sailing
     case other
     
     public init(from hkType: HKWorkoutActivityType) {
+        // Underwater diving arrived in iOS 17, later than the deployment
+        // target, so the switch below cannot name it.
+        if #available(iOS 17.0, *), hkType == .underwaterDiving {
+            self = .underwaterDiving
+            return
+        }
         switch hkType {
         case .running: self = .running
         case .walking: self = .walking
@@ -58,7 +84,8 @@ public enum AHWorkoutActivityType: String, CaseIterable, Sendable {
         case .dance, .socialDance, .cardioDance: self = .dance
         case .badminton: self = .badminton
         case .basketball: self = .basketball
-        case .soccer, .americanFootball, .australianFootball: self = .football
+        case .soccer: self = .football
+        case .americanFootball, .australianFootball: self = .americanFootball
         case .tennis: self = .tennis
         case .cricket: self = .cricket
         case .volleyball: self = .volleyball
@@ -68,7 +95,7 @@ public enum AHWorkoutActivityType: String, CaseIterable, Sendable {
         case .pilates: self = .pilates
         case .elliptical: self = .elliptical
         case .rowing: self = .rowing
-        case .stairClimbing, .stepTraining: self = .stairClimber
+        case .stairClimbing, .stepTraining, .stairs: self = .stairClimber
         case .boxing: self = .boxing
         case .kickboxing: self = .kickboxing
         case .martialArts: self = .martialArts
@@ -77,6 +104,7 @@ public enum AHWorkoutActivityType: String, CaseIterable, Sendable {
         case .baseball, .softball: self = .baseball
         case .rugby: self = .rugby
         case .surfingSports: self = .surfing
+        case .sailing: self = .sailing
         case .paddleSports: self = .paddleSports
         case .downhillSkiing: self = .downhillSkiing
         case .snowboarding: self = .snowboarding
@@ -86,8 +114,26 @@ public enum AHWorkoutActivityType: String, CaseIterable, Sendable {
         case .crossTraining: self = .crossTraining
         case .coreTraining: self = .coreTraining
         case .waterPolo: self = .waterPolo
-        case .flexibility: self = .stretching
+        case .flexibility, .cooldown: self = .stretching
         case .waterFitness: self = .waterFitness
+        case .lacrosse: self = .lacrosse
+        case .archery: self = .archery
+        case .bowling: self = .bowling
+        case .fishing: self = .fishing
+        case .hunting: self = .hunting
+        case .gymnastics: self = .gymnastics
+        case .squash, .racquetball: self = .squash
+        case .discSports: self = .discSports
+        case .equestrianSports: self = .equestrianSports
+        case .wheelchairWalkPace, .wheelchairRunPace: self = .wheelchair
+        case .pickleball: self = .pickleball
+        case .climbing: self = .climbing
+        case .wrestling: self = .wrestling
+        case .barre: self = .barre
+        case .trackAndField: self = .trackAndField
+        case .mixedCardio: self = .mixedCardio
+        case .fitnessGaming: self = .fitnessGaming
+        case .preparationAndRecovery: self = .stretching
         default: self = .other
         }
     }

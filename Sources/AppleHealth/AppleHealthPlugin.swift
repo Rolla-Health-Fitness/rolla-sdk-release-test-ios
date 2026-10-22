@@ -361,6 +361,26 @@ private extension AHWorkoutActivityType {
         case .waterPolo: return .waterPolo
         case .stretching: return .stretching
         case .waterFitness: return .waterFitness
+        case .americanFootball: return .americanFootball
+        case .lacrosse: return .lacrosse
+        case .archery: return .archery
+        case .bowling: return .bowling
+        case .fishing: return .fishing
+        case .hunting: return .hunting
+        case .gymnastics: return .gymnastics
+        case .pickleball: return .pickleball
+        case .squash: return .squash
+        case .discSports: return .discSports
+        case .equestrianSports: return .equestrianSports
+        case .wheelchair: return .wheelchair
+        case .underwaterDiving: return .underwaterDiving
+        case .climbing: return .climbing
+        case .wrestling: return .wrestling
+        case .barre: return .barre
+        case .trackAndField: return .trackAndField
+        case .mixedCardio: return .mixedCardio
+        case .fitnessGaming: return .fitnessGaming
+        case .sailing: return .sailing
         case .other: return .other
         }
     }
