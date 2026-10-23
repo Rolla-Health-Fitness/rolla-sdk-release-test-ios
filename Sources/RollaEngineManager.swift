@@ -103,6 +103,36 @@ final class RollaEngineManager {
         wiring?()
     }
 
+    // Whether the SDK UI actually launched for the current presentation slot
+    // (a view controller was presented), as opposed to the slot merely being
+    // reserved for an open still in flight. Reset with the slot, and by
+    // destroy(), which can run with the UI still up.
+    private(set) var presentationLaunched = false
+
+    // Reservation → real presentation. A pending hand-back is dropped: the
+    // presenter keeps the closures through the dismiss.
+    func markPresentationLaunched() {
+        presentationLaunched = true
+        deferredHostEventWiring = nil
+    }
+
+    // The one way the presentation slot is released, whatever ended it. After
+    // a real presentation the presenter keeps the closures; after a
+    // reservation that never presented, a headless caller turned away
+    // meanwhile takes them now. The presentation callbacks go with the slot.
+    func releasePresentation() {
+        let launched = presentationLaunched
+        presentationLaunched = false
+        isPresenting = false
+        onClose = nil
+        onError = nil
+        if launched {
+            deferredHostEventWiring = nil
+        } else {
+            runDeferredHostEventWiring()
+        }
+    }
+
     private init() {}
 
     func setPresenting(_ value: Bool) {
@@ -609,6 +639,7 @@ final class RollaEngineManager {
         onGoalsChanged = nil
         onProfileUpdated = nil
         deferredHostEventWiring = nil
+        presentationLaunched = false
         engine?.destroyContext()
         engine = nil
         isReady = false

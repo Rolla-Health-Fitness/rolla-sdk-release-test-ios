@@ -25,7 +25,7 @@ public final class Rolla {
                 return
             }
 
-            guard viewController.viewIfLoaded?.window != nil else {
+            guard Self.canPresent(from: viewController) else {
                 self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
                 return
             }
@@ -37,6 +37,15 @@ public final class Rolla {
 
                 switch result {
                 case .success(let vc):
+                    // The configure round-trip can outlive the host's
+                    // presentation context; a present UIKit refuses (detached,
+                    // or already presenting) would strand the slot.
+                    guard Self.canPresent(from: viewController) else {
+                        self.cleanup()
+                        self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
+                        return
+                    }
+                    self.engineManager.markPresentationLaunched()
                     vc.setupPresentation(transition: transition)
                     viewController.present(vc, animated: true)
 
@@ -320,7 +329,7 @@ public final class Rolla {
                 return
             }
 
-            guard viewController.viewIfLoaded?.window != nil else {
+            guard Self.canPresent(from: viewController) else {
                 self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
                 completion(.uiUnavailable)
                 return
@@ -348,6 +357,13 @@ public final class Rolla {
             self.prepareAndShow { result in
                 switch result {
                 case .success(let vc):
+                    guard Self.canPresent(from: viewController) else {
+                        self.cleanup()
+                        self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
+                        completion(.uiUnavailable)
+                        return
+                    }
+                    self.engineManager.markPresentationLaunched()
                     vc.setupPresentation(transition: transition)
                     viewController.present(vc, animated: true)
                     // Invoked only now, after configure's `initialize` has
@@ -403,7 +419,7 @@ public final class Rolla {
         engineManager.ensureConfigured(with: configuration) { configureResult in
             switch configureResult {
             case .failure(let error):
-                self.releaseReservation()
+                self.engineManager.releasePresentation()
                 self.delegate?.rollaDidFailWithError(self, error: error)
                 completion(.unknownError)
 
@@ -412,13 +428,13 @@ public final class Rolla {
                 // queues the navigation until its home widget settles.
                 self.engineManager.openScreen(screen) { status in
                     guard status == .opened else {
-                        self.releaseReservation()
+                        self.engineManager.releasePresentation()
                         completion(status)
                         return
                     }
 
                     guard let engine = self.engineManager.engine else {
-                        self.releaseReservation()
+                        self.engineManager.releasePresentation()
                         self.delegate?.rollaDidFailWithError(self, error: .engineFailedToStart)
                         completion(.unknownError)
                         return
@@ -426,11 +442,11 @@ public final class Rolla {
 
                     // The async round-trips above can outlive the host's
                     // presentation context — re-validate before presenting,
-                    // like show() does at call time. Presenting from a
-                    // detached view controller no-ops silently and would
-                    // strand isPresenting forever.
-                    guard viewController.viewIfLoaded?.window != nil else {
-                        self.releaseReservation()
+                    // like show() does at call time. A present UIKit refuses
+                    // (detached, or already presenting) no-ops silently and
+                    // would strand the slot.
+                    guard Self.canPresent(from: viewController) else {
+                        self.engineManager.releasePresentation()
                         self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
                         completion(.uiUnavailable)
                         return
@@ -438,6 +454,7 @@ public final class Rolla {
 
                     self.setupCallbacks()
                     let vc = self.makePresentableViewController(engine: engine)
+                    self.engineManager.markPresentationLaunched()
                     vc.setupPresentation(transition: transition)
                     viewController.present(vc, animated: true)
                     completion(.opened)
@@ -506,11 +523,10 @@ public final class Rolla {
         vc.onDismiss = { [weak self] reason in
             // The presenter can be gone by now (destroyEngine() under a
             // presented UI releases the closures that kept it alive); the
-            // presentation slot must still be released, or every later
-            // caller would find the UI "presented" and wire nothing.
+            // slot is still released exactly as cleanup() would, or every
+            // later caller would find the UI "presented" and wire nothing.
             guard let self else {
-                RollaEngineManager.shared.setPresenting(false)
-                RollaEngineManager.shared.runDeferredHostEventWiring()
+                RollaEngineManager.shared.releasePresentation()
                 return
             }
             let finalReason = self.pendingCloseReason ?? reason
@@ -534,7 +550,7 @@ public final class Rolla {
     /// another instance — typically a throwaway with no delegate — wires
     /// nothing, so it cannot swallow the open UI's events. Should that
     /// reservation end without presenting, the caller turned away takes the
-    /// closures then (``releaseReservation()``). A refresh token is
+    /// closures then (``RollaEngineManager/releasePresentation()``). A refresh token is
     /// single-use, so a rotation delivered to an instance without a delegate
     /// would leave the host holding a dead pair. With nothing presented the
     /// most recent caller takes all thirteen. ``setupCallbacks()`` and the
@@ -554,11 +570,15 @@ public final class Rolla {
     private func wireHostEventCallbacks(presenting: Bool = false) {
         guard presenting || !engineManager.isPresenting else {
             // Turned away while another instance holds the presentation slot.
-            // If that reservation ends without presenting, this caller takes
-            // the closures after all — the slot holder never became the
-            // presenter. `self` is captured strongly for the same reason the
+            // Only a reservation still in flight can end without presenting,
+            // so only then is this caller recorded as the hand-back that runs
+            // if it does; once the UI is on screen the presenter keeps the
+            // closures through the dismiss and nothing is retained for
+            // nothing. `self` is captured strongly for the same reason the
             // closures capture it.
-            engineManager.deferredHostEventWiring = { self.wireHostEventCallbacks() }
+            if !engineManager.presentationLaunched {
+                engineManager.deferredHostEventWiring = { self.wireHostEventCallbacks() }
+            }
             return
         }
 
@@ -627,9 +647,6 @@ public final class Rolla {
 
     private func setupCallbacks() {
         wireHostEventCallbacks(presenting: true)
-        // This instance presents: a caller turned away during the reservation
-        // does not take over, now or after the dismiss.
-        engineManager.deferredHostEventWiring = nil
 
         engineManager.onClose = { [weak self] reason in
             guard let self else { return }
@@ -643,29 +660,19 @@ public final class Rolla {
         }
     }
 
-    private func cleanup() {
-        // No view controller means the reservation never presented (a
-        // configure or start-up failure): the slot is released like any
-        // non-presenting exit. After a real presentation the presenter keeps
-        // the closures through the dismiss.
-        let presented = flutterViewController != nil
-        pendingCloseReason = nil
-        flutterViewController = nil
-        engineManager.onClose = nil
-        engineManager.onError = nil
-        if presented {
-            engineManager.setPresenting(false)
-            engineManager.deferredHostEventWiring = nil
-        } else {
-            releaseReservation()
-        }
+    /// Whether UIKit would actually present from [viewController]: it must be
+    /// on screen and not already presenting something else — either way
+    /// `present(_:animated:)` is a silent no-op that would strand the
+    /// presentation slot.
+    private static func canPresent(from viewController: UIViewController) -> Bool {
+        viewController.viewIfLoaded?.window != nil && viewController.presentedViewController == nil
     }
 
-    /// Release the presentation slot after a reservation that never presented:
-    /// nothing is on screen, so a headless caller the guard turned away while
-    /// the slot was held takes the closures now.
-    private func releaseReservation() {
-        engineManager.setPresenting(false)
-        engineManager.runDeferredHostEventWiring()
+    private func cleanup() {
+        pendingCloseReason = nil
+        flutterViewController = nil
+        // Whether the UI ever launched, and so whether a turned-away caller
+        // takes the closures now, is the engine manager's call.
+        engineManager.releasePresentation()
     }
 }
