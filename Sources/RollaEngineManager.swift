@@ -71,11 +71,11 @@ final class RollaEngineManager {
     // show, cleared on dismiss), these are wired for the engine's lifetime by
     // Rolla.wireHostEventCallbacks() and cleared only in destroy(). The token
     // pair belongs here: a headless call can rotate or lose the session, so
-    // delivery must not depend on the SDK UI being presented. While the UI is
-    // presented the pair belongs to the presenting Rolla instance, otherwise
-    // to the instance that most recently called the SDK — a headless call
-    // never takes it from a presenter. `onTokenExpired` returns whether a host
-    // delegate received the request.
+    // delivery must not depend on the SDK UI being presented. All of them are
+    // presenter-first: while the UI is presented they belong to the presenting
+    // Rolla instance and a headless call never takes them from it; otherwise
+    // they go to the instance that most recently called the SDK.
+    // `onTokenExpired` returns whether a host delegate received the request.
     var onTokenRefreshed: ((String, String?, TimeInterval?) -> Void)?
     var onTokenExpired: (() -> Bool)?
     var onActivityCompleted: ((RollaCompletedActivity) -> Void)?
@@ -89,7 +89,6 @@ final class RollaEngineManager {
     var onPrimarySourceChanged: ((RollaPrimarySourceChanged) -> Void)?
     var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
     var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
-    var onAccessChanged: ((RollaAccessStatus) -> Void)?
 
     private init() {}
 
@@ -221,10 +220,6 @@ final class RollaEngineManager {
 
         case "onProfileUpdated":
             onProfileUpdated?(RollaProfileUpdated.from(call.arguments))
-            result(nil)
-
-        case "onAccessChanged":
-            onAccessChanged?(RollaAccessStatus.from(call.arguments))
             result(nil)
 
         default:
@@ -600,7 +595,6 @@ final class RollaEngineManager {
         onPrimarySourceChanged = nil
         onGoalsChanged = nil
         onProfileUpdated = nil
-        onAccessChanged = nil
         engine?.destroyContext()
         engine = nil
         isReady = false

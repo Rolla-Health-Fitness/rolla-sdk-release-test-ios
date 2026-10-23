@@ -187,39 +187,6 @@ public protocol RollaDelegate: AnyObject {
     ///   - rolla: The Rolla instance delivering the event.
     ///   - update: The sparse map of changed fields.
     func rollaDidUpdateProfile(_ rolla: Rolla, update: RollaProfileUpdated)
-
-    /// Called with the user's access status when the SDK first loads it and on
-    /// every change after, in order — a lock from a `403 access_required`
-    /// refusal, the access end date or a status refresh, and an unlock after a
-    /// redeemed code or a partner-side restore. The SDK never reports an
-    /// unlock without a backend answer.
-    ///
-    /// A lock that lands while a workout is recording in the SDK UI is
-    /// delivered once the workout is finished or discarded, so the user can
-    /// complete it (a newer lock replaces the held one); an unlock is never
-    /// held. Delivered for the engine's lifetime, UI shown or not, to the
-    /// instance that most recently called the SDK — last writer wins, like
-    /// the other host events, not the presenter-first rule of the token
-    /// callbacks — so set the delegate on every instance that calls the SDK,
-    /// or keep one instance: a status that reaches an instance without a
-    /// delegate is not repeated. A headless
-    /// ``Rolla/syncHealthData(includeSamples:completion:)`` that learns of a
-    /// lock answers `skipped` with `accessRequired` — or `partial`, with the
-    /// lock as its error, when data landed before the backend stated it
-    /// mid-sync — and reports the lock here, possibly after its completion
-    /// handler.
-    ///
-    /// A host that gates its own screens shows or lifts its lock from
-    /// ``RollaAccessStatus/isLocked``; a host that presents the SDK can leave
-    /// the lock to it — the SDK's own lock screen handles code entry, the help
-    /// link and logout while locked. Partners whose gate is off hear one
-    /// status with ``RollaAccessStatus/gateEnabled`` `false` per SDK session
-    /// (each engine start or user switch), and again only when it changes.
-    ///
-    /// - Parameters:
-    ///   - rolla: The Rolla instance delivering the event.
-    ///   - status: The user's access status.
-    func rollaDidChangeAccess(_ rolla: Rolla, status: RollaAccessStatus)
 }
 
 public extension RollaDelegate {
@@ -239,5 +206,4 @@ public extension RollaDelegate {
     func rollaDidChangePrimarySource(_ rolla: Rolla, change: RollaPrimarySourceChanged) {}
     func rollaDidChangeGoals(_ rolla: Rolla, change: RollaGoalsChanged) {}
     func rollaDidUpdateProfile(_ rolla: Rolla, update: RollaProfileUpdated) {}
-    func rollaDidChangeAccess(_ rolla: Rolla, status: RollaAccessStatus) {}
 }

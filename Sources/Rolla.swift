@@ -118,8 +118,10 @@ public final class Rolla {
             // callbacks. Another Rolla instance may be presenting right now, and
             // those callbacks belong to it; show() wires them when this instance
             // presents. The host-EVENT callbacks are different: they are
-            // engine-scoped, not presentation-scoped, so a headless warm-up DOES
-            // wire them — events must flow without the SDK UI ever opening.
+            // engine-scoped, not presentation-scoped, so a headless warm-up
+            // wires them when nothing is presented — events must flow without
+            // the SDK UI ever opening. While another instance presents the UI
+            // they stay with it (see wireHostEventCallbacks).
             self.wireHostEventCallbacks()
             self.engineManager.ensureConfigured(with: self.configuration) { result in
                 completion?(result)
@@ -147,7 +149,8 @@ public final class Rolla {
     public func getBandBatteryLevel(completion: @escaping (Result<RollaBatteryResult, RollaError>) -> Void) {
         DispatchQueue.main.async {
             // Headless read: don't wire presentation callbacks (see warmUpEngine).
-            // Host-event callbacks ARE wired — they're engine-scoped.
+            // Host-event callbacks are engine-scoped and wired here only when
+            // nothing is presented; a presenter keeps them.
             self.wireHostEventCallbacks()
             //
             // Capture `self` STRONGLY through the configure round-trip. This is a
@@ -199,7 +202,8 @@ public final class Rolla {
     public func getPairedBandInfo(completion: @escaping (Result<RollaPairedBandResult, RollaError>) -> Void) {
         DispatchQueue.main.async {
             // Headless query: don't wire presentation callbacks (see warmUpEngine).
-            // Host-event callbacks ARE wired — they're engine-scoped.
+            // Host-event callbacks are engine-scoped and wired here only when
+            // nothing is presented; a presenter keeps them.
             self.wireHostEventCallbacks()
             //
             // Capture `self` STRONGLY through the configure round-trip — a
@@ -252,7 +256,8 @@ public final class Rolla {
     ) {
         DispatchQueue.main.async {
             // Headless sync: don't wire presentation callbacks (see warmUpEngine).
-            // Host-event callbacks ARE wired — they're engine-scoped.
+            // Host-event callbacks are engine-scoped and wired here only when
+            // nothing is presented; a presenter keeps them.
             self.wireHostEventCallbacks()
             //
             // Capture `self` STRONGLY through the configure round-trip — same
@@ -382,13 +387,15 @@ public final class Rolla {
         engineManager.setPresenting(true)
 
         // Engine-scoped host events must flow regardless of presentation —
-        // same discipline as the headless APIs (see warmUpEngine). The token
-        // callbacks come along now rather than in setupCallbacks() after the
-        // open: this instance holds the presenting slot, so a rotation or a
-        // failed refresh during the configure/navigate round-trip must reach
-        // ITS delegate — not whichever instance last called the SDK, which may
-        // be a throwaway warm-up instance with none (a rotated refresh token is
-        // single-use, so a delivery to nobody loses it for good).
+        // same discipline as the headless APIs (see warmUpEngine). They and
+        // the token callbacks are claimed now rather than in setupCallbacks()
+        // after the open: this instance holds the presenting slot, so no
+        // headless call from another instance rewires them from here on, and
+        // an event, a rotation or a failed refresh during the
+        // configure/navigate round-trip must reach ITS delegate — not the
+        // instance that wired them last, which may be a throwaway warm-up
+        // instance with none (a rotated refresh token is single-use, so a
+        // delivery to nobody loses it for good).
         wireHostEventCallbacks(presenting: true)
 
         // `self` is captured strongly through the round-trips — same
@@ -497,7 +504,14 @@ public final class Rolla {
     private func makePresentableViewController(engine: FlutterEngine) -> RollaFlutterViewController {
         let vc = RollaFlutterViewController(engine: engine, nibName: nil, bundle: nil)
         vc.onDismiss = { [weak self] reason in
-            guard let self else { return }
+            // The presenter can be gone by now (destroyEngine() under a
+            // presented UI releases the closures that kept it alive); the
+            // presentation slot must still be released, or every later
+            // caller would find the UI "presented" and wire nothing.
+            guard let self else {
+                RollaEngineManager.shared.setPresenting(false)
+                return
+            }
             let finalReason = self.pendingCloseReason ?? reason
             self.cleanup()
             self.delegate?.rollaDidClose(self, reason: finalReason)
@@ -506,28 +520,27 @@ public final class Rolla {
         return vc
     }
 
-    /// Wire the host-event closures to THIS instance's delegate for the
-    /// engine's lifetime. Unlike the presentation callbacks (wired in
-    /// ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss), events keep
-    /// flowing after the SDK UI closes — a late `uploaded` activity phase must
-    /// still reach the host, and a host that only ever runs headless calls
-    /// still gets events. The twelve host events are cleared only by
-    /// ``destroyEngine()`` or when another Rolla instance wires itself (last
-    /// writer wins, matching the presentation-callback semantics).
+    /// Wire the engine-scoped closures — the eleven host events and the token
+    /// pair — to THIS instance's delegate. Unlike the presentation callbacks
+    /// (wired in ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss),
+    /// all thirteen survive a dismiss and are cleared only by
+    /// ``destroyEngine()``: a late `uploaded` activity phase must still reach
+    /// the host, a host that only ever runs headless calls still gets events,
+    /// and a headless call can rotate or lose the session with no UI shown.
     ///
-    /// The token callbacks live here for the same reason — a headless call can
-    /// rotate or lose the session, and the host must hear about it with no UI
-    /// shown — but they follow a stricter rule: while the SDK UI is presented
-    /// they belong to the presenting instance, otherwise to the instance that
-    /// most recently called the SDK. A refresh token is single-use, so a
-    /// headless call from a throwaway instance with no delegate must not take
-    /// them over while another instance presents the UI. ``setupCallbacks()``
-    /// and the warm ``openScreen(_:from:transition:completion:)`` path pass
+    /// Ownership is presenter-first. While the SDK UI is presented, or being
+    /// opened, the closures belong to the presenting instance, and a headless call from
+    /// another instance — typically a throwaway with no delegate — wires
+    /// nothing, so it cannot swallow the open UI's events. A refresh token is
+    /// single-use, so a rotation delivered to an instance without a delegate
+    /// would leave the host holding a dead pair. With nothing presented the
+    /// most recent caller takes all thirteen. ``setupCallbacks()`` and the
+    /// warm ``openScreen(_:from:transition:completion:)`` path pass
     /// `presenting: true`; every headless entry point keeps the default.
     ///
     /// - Parameter presenting: `true` when this instance is presenting (or
-    ///   about to present) the SDK UI and so takes the token callbacks even
-    ///   though ``RollaEngineManager/isPresenting`` is already set.
+    ///   about to present) the SDK UI and so takes the closures even though
+    ///   ``RollaEngineManager/isPresenting`` is already set.
     ///
     /// `self` is captured strongly on purpose: hosts often create a Rolla
     /// instance per call and drop it; a weak capture would silently end event
@@ -536,6 +549,8 @@ public final class Rolla {
     /// a cycle-free lifetime extension until destroy/rewire. The delegate
     /// property itself stays weak — the host controls its listener's lifetime.
     private func wireHostEventCallbacks(presenting: Bool = false) {
+        guard presenting || !engineManager.isPresenting else { return }
+
         engineManager.onActivityCompleted = { activity in
             self.delegate?.rollaDidCompleteActivity(self, activity: activity)
         }
@@ -580,29 +595,22 @@ public final class Rolla {
             self.delegate?.rollaDidUpdateProfile(self, update: update)
         }
 
-        engineManager.onAccessChanged = { status in
-            self.delegate?.rollaDidChangeAccess(self, status: status)
+        // A refresh token is single-use, so a rotation delivered to an
+        // instance without a delegate leaves the host holding a dead pair —
+        // the guard above keeps a presenter's pair from moving.
+        // `onTokenExpired` answers whether a delegate was there to receive
+        // the request; without one the Dart side fails fast instead of
+        // waiting for an `updateToken` push that can never come.
+        engineManager.onTokenRefreshed = { token, refreshToken, expiresIn in
+            self.delegate?.rollaDidRefreshToken(
+                self, token: token, refreshToken: refreshToken, expiresIn: expiresIn
+            )
         }
 
-        // While the SDK UI is presented the token callbacks belong to the
-        // presenting instance; otherwise to the instance that most recently
-        // called the SDK. A refresh token is single-use, so a rotation
-        // delivered to an instance without a delegate leaves the host holding
-        // a dead pair. `onTokenExpired` answers whether a delegate was there
-        // to receive the request; without one the Dart side fails fast
-        // instead of waiting for an `updateToken` push that can never come.
-        if presenting || !engineManager.isPresenting {
-            engineManager.onTokenRefreshed = { token, refreshToken, expiresIn in
-                self.delegate?.rollaDidRefreshToken(
-                    self, token: token, refreshToken: refreshToken, expiresIn: expiresIn
-                )
-            }
-
-            engineManager.onTokenExpired = {
-                guard let delegate = self.delegate else { return false }
-                delegate.rollaDidRequestTokenRefresh(self)
-                return true
-            }
+        engineManager.onTokenExpired = {
+            guard let delegate = self.delegate else { return false }
+            delegate.rollaDidRequestTokenRefresh(self)
+            return true
         }
     }
 
