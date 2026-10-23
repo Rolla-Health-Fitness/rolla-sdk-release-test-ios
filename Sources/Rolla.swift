@@ -403,7 +403,7 @@ public final class Rolla {
         engineManager.ensureConfigured(with: configuration) { configureResult in
             switch configureResult {
             case .failure(let error):
-                self.engineManager.setPresenting(false)
+                self.releaseReservation()
                 self.delegate?.rollaDidFailWithError(self, error: error)
                 completion(.unknownError)
 
@@ -412,13 +412,13 @@ public final class Rolla {
                 // queues the navigation until its home widget settles.
                 self.engineManager.openScreen(screen) { status in
                     guard status == .opened else {
-                        self.engineManager.setPresenting(false)
+                        self.releaseReservation()
                         completion(status)
                         return
                     }
 
                     guard let engine = self.engineManager.engine else {
-                        self.engineManager.setPresenting(false)
+                        self.releaseReservation()
                         self.delegate?.rollaDidFailWithError(self, error: .engineFailedToStart)
                         completion(.unknownError)
                         return
@@ -430,7 +430,7 @@ public final class Rolla {
                     // detached view controller no-ops silently and would
                     // strand isPresenting forever.
                     guard viewController.viewIfLoaded?.window != nil else {
-                        self.engineManager.setPresenting(false)
+                        self.releaseReservation()
                         self.delegate?.rollaDidFailWithError(self, error: .invalidPresentationContext)
                         completion(.uiUnavailable)
                         return
@@ -510,6 +510,7 @@ public final class Rolla {
             // caller would find the UI "presented" and wire nothing.
             guard let self else {
                 RollaEngineManager.shared.setPresenting(false)
+                RollaEngineManager.shared.runDeferredHostEventWiring()
                 return
             }
             let finalReason = self.pendingCloseReason ?? reason
@@ -531,7 +532,9 @@ public final class Rolla {
     /// Ownership is presenter-first. While the SDK UI is presented, or being
     /// opened, the closures belong to the presenting instance, and a headless call from
     /// another instance — typically a throwaway with no delegate — wires
-    /// nothing, so it cannot swallow the open UI's events. A refresh token is
+    /// nothing, so it cannot swallow the open UI's events. Should that
+    /// reservation end without presenting, the caller turned away takes the
+    /// closures then (``releaseReservation()``). A refresh token is
     /// single-use, so a rotation delivered to an instance without a delegate
     /// would leave the host holding a dead pair. With nothing presented the
     /// most recent caller takes all thirteen. ``setupCallbacks()`` and the
@@ -549,7 +552,15 @@ public final class Rolla {
     /// a cycle-free lifetime extension until destroy/rewire. The delegate
     /// property itself stays weak — the host controls its listener's lifetime.
     private func wireHostEventCallbacks(presenting: Bool = false) {
-        guard presenting || !engineManager.isPresenting else { return }
+        guard presenting || !engineManager.isPresenting else {
+            // Turned away while another instance holds the presentation slot.
+            // If that reservation ends without presenting, this caller takes
+            // the closures after all — the slot holder never became the
+            // presenter. `self` is captured strongly for the same reason the
+            // closures capture it.
+            engineManager.deferredHostEventWiring = { self.wireHostEventCallbacks() }
+            return
+        }
 
         engineManager.onActivityCompleted = { activity in
             self.delegate?.rollaDidCompleteActivity(self, activity: activity)
@@ -616,6 +627,9 @@ public final class Rolla {
 
     private func setupCallbacks() {
         wireHostEventCallbacks(presenting: true)
+        // This instance presents: a caller turned away during the reservation
+        // does not take over, now or after the dismiss.
+        engineManager.deferredHostEventWiring = nil
 
         engineManager.onClose = { [weak self] reason in
             guard let self else { return }
@@ -630,10 +644,28 @@ public final class Rolla {
     }
 
     private func cleanup() {
+        // No view controller means the reservation never presented (a
+        // configure or start-up failure): the slot is released like any
+        // non-presenting exit. After a real presentation the presenter keeps
+        // the closures through the dismiss.
+        let presented = flutterViewController != nil
         pendingCloseReason = nil
         flutterViewController = nil
-        engineManager.setPresenting(false)
         engineManager.onClose = nil
         engineManager.onError = nil
+        if presented {
+            engineManager.setPresenting(false)
+            engineManager.deferredHostEventWiring = nil
+        } else {
+            releaseReservation()
+        }
+    }
+
+    /// Release the presentation slot after a reservation that never presented:
+    /// nothing is on screen, so a headless caller the guard turned away while
+    /// the slot was held takes the closures now.
+    private func releaseReservation() {
+        engineManager.setPresenting(false)
+        engineManager.runDeferredHostEventWiring()
     }
 }

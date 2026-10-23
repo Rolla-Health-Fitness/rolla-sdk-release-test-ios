@@ -90,6 +90,19 @@ final class RollaEngineManager {
     var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
     var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
 
+    // A headless caller the presenter-first guard turned away while the
+    // presentation slot was held. Run when that reservation ends without
+    // presenting, so the most recent caller still ends up with the closures;
+    // dropped when the slot holder actually presents (it keeps them, through
+    // the dismiss as well) and in destroy().
+    var deferredHostEventWiring: (() -> Void)?
+
+    func runDeferredHostEventWiring() {
+        let wiring = deferredHostEventWiring
+        deferredHostEventWiring = nil
+        wiring?()
+    }
+
     private init() {}
 
     func setPresenting(_ value: Bool) {
@@ -595,6 +608,7 @@ final class RollaEngineManager {
         onPrimarySourceChanged = nil
         onGoalsChanged = nil
         onProfileUpdated = nil
+        deferredHostEventWiring = nil
         engine?.destroyContext()
         engine = nil
         isReady = false
