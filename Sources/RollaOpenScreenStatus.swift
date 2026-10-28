@@ -11,7 +11,8 @@ public enum RollaOpenScreenStatus: String {
     /// ``RollaConfiguration/disabledModules``. Nothing was opened.
     case screenDisabled
     /// A mandatory startup step (onboarding, consent, permissions, or
-    /// data-source connection) is in front of the user and stays there.
+    /// data-source connection) or the access lock screen is in front of the
+    /// user and stays there.
     case blockedByGate
     /// The SDK UI could not be shown or did not become ready to navigate.
     /// Nothing was opened.

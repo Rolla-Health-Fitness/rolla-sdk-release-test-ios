@@ -89,6 +89,7 @@ final class RollaEngineManager {
     var onPrimarySourceChanged: ((RollaPrimarySourceChanged) -> Void)?
     var onGoalsChanged: ((RollaGoalsChanged) -> Void)?
     var onProfileUpdated: ((RollaProfileUpdated) -> Void)?
+    var onAccessChanged: ((RollaAccessStatus) -> Void)?
 
     // A headless caller the presenter-first guard turned away while the
     // presentation slot was held. Run when that reservation ends without
@@ -263,6 +264,10 @@ final class RollaEngineManager {
 
         case "onProfileUpdated":
             onProfileUpdated?(RollaProfileUpdated.from(call.arguments))
+            result(nil)
+
+        case "onAccessChanged":
+            onAccessChanged?(RollaAccessStatus.from(call.arguments))
             result(nil)
 
         default:
@@ -638,6 +643,7 @@ final class RollaEngineManager {
         onPrimarySourceChanged = nil
         onGoalsChanged = nil
         onProfileUpdated = nil
+        onAccessChanged = nil
         deferredHostEventWiring = nil
         presentationLaunched = false
         engine?.destroyContext()

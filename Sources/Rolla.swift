@@ -537,10 +537,10 @@ public final class Rolla {
         return vc
     }
 
-    /// Wire the engine-scoped closures — the eleven host events and the token
+    /// Wire the engine-scoped closures — the twelve host events and the token
     /// pair — to THIS instance's delegate. Unlike the presentation callbacks
     /// (wired in ``setupCallbacks()``, cleared in ``cleanup()`` on dismiss),
-    /// all thirteen survive a dismiss and are cleared only by
+    /// all fourteen survive a dismiss and are cleared only by
     /// ``destroyEngine()``: a late `uploaded` activity phase must still reach
     /// the host, a host that only ever runs headless calls still gets events,
     /// and a headless call can rotate or lose the session with no UI shown.
@@ -553,7 +553,7 @@ public final class Rolla {
     /// closures then (``RollaEngineManager/releasePresentation()``). A refresh token is
     /// single-use, so a rotation delivered to an instance without a delegate
     /// would leave the host holding a dead pair. With nothing presented the
-    /// most recent caller takes all thirteen. ``setupCallbacks()`` and the
+    /// most recent caller takes all fourteen. ``setupCallbacks()`` and the
     /// warm ``openScreen(_:from:transition:completion:)`` path pass
     /// `presenting: true`; every headless entry point keeps the default.
     ///
@@ -624,6 +624,10 @@ public final class Rolla {
 
         engineManager.onProfileUpdated = { update in
             self.delegate?.rollaDidUpdateProfile(self, update: update)
+        }
+
+        engineManager.onAccessChanged = { status in
+            self.delegate?.rollaDidChangeAccess(self, status: status)
         }
 
         // A refresh token is single-use, so a rotation delivered to an

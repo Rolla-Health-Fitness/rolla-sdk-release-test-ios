@@ -12,7 +12,9 @@ public enum RollaSyncOutcome: String {
     /// The sync ran, at least one stream failed, and new data still reached
     /// the server — a stream uploaded, or a failed stream's accepted part is
     /// in ``RollaSyncResult/syncedData``. See ``RollaSyncResult/streamResults``;
-    /// ``RollaSyncResult/error`` is the first failure.
+    /// ``RollaSyncResult/error`` is the first failure, or the access lock
+    /// (`access_required`) when the backend stated it mid-sync, which stops the
+    /// streams after the one it refused.
     /// ``RollaSyncResult/hasNewData`` is always `true`.
     /// ``RollaSyncResult/syncedData`` is present unless this sync overlapped
     /// another one (see the property), while ``RollaSyncResult/streamResults``
@@ -88,6 +90,11 @@ public enum RollaSyncSkipReason: String {
     case notInitialized
     /// The device is offline.
     case offline
+    /// The user has no active access (the partner's access gate locked them); nothing was
+    /// synced: the lock was known before the sync started, or the backend stated it (a stream
+    /// refused with `403 access_required`) before any data landed. A lock stated after data
+    /// landed makes the sync ``RollaSyncOutcome/partial`` instead, with the lock as its error.
+    case accessRequired
     /// The SDK returned a reason this version does not recognize (forward-compat).
     case unknown
 }
@@ -132,7 +139,9 @@ public enum RollaSyncStreamStatus: String {
     /// Reading the stream from its source, or uploading it, failed — see
     /// ``RollaSyncStreamResult/error``. What did not upload is retried on the
     /// next sync; a stream that fails for the same reason every time stays
-    /// failed until the cause is fixed.
+    /// failed until the cause is fixed. Data the server accepted in the same
+    /// sync (workouts upload one at a time) still appears in
+    /// ``RollaSyncResult/syncedData``.
     case failed
     /// The stream needs a permission the app has not granted. The SDK cannot
     /// prompt during a sync, so the host requests it and the stream syncs
@@ -383,8 +392,9 @@ public struct RollaSyncResult {
     public let skipReason: RollaSyncSkipReason?
     /// The error message. Non-nil only when ``outcome`` is
     /// ``RollaSyncOutcome/failure`` or ``RollaSyncOutcome/partial``. When
-    /// streams failed, this is the first failed stream's error; each failed
-    /// stream's own error is in ``streamResults``.
+    /// streams failed, this is the first failed stream's error, or the access
+    /// lock (`access_required`) when the backend stated it mid-sync; each
+    /// failed stream's own error is in ``streamResults``.
     public let error: String?
 
     /// The health data this sync uploaded — per-stream summaries always, raw
